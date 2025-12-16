@@ -304,10 +304,10 @@ export default function WorkCentresPage() {
                   </div>
                 </div>
 
-                {/* Machines List - max 3 visible, scroll for more */}
+                {/* Machines List */}
                 <div style={{ 
-                  maxHeight: wcMachines.length > 3 ? '156px' : 'auto', 
-                  overflowY: wcMachines.length > 3 ? 'auto' : 'visible',
+                  maxHeight: wcMachines.length > 4 ? '200px' : 'auto', 
+                  overflowY: wcMachines.length > 4 ? 'auto' : 'visible',
                 }}>
                   {wcMachines.length === 0 ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
@@ -361,7 +361,7 @@ export default function WorkCentresPage() {
                     ))
                   )}
                 </div>
-                {wcMachines.length > 3 && (
+                {wcMachines.length > 4 && (
                   <div style={{ padding: '6px 14px', borderTop: '1px solid #f1f5f9', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>
                     Scroll for more ({wcMachines.length} total)
                   </div>
