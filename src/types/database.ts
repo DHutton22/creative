@@ -54,6 +54,7 @@ export interface ChecklistItem {
   type: ChecklistItemType;
   required: boolean;
   critical: boolean;
+  helpText?: string;
   minValue?: number;
   maxValue?: number;
   unit?: string;
