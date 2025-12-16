@@ -91,8 +91,9 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
 
     setSections(typedTemplateData.json_definition?.sections || []);
 
-    if (typedTemplateData.json_definition?.sections?.length > 0) {
-      setExpandedSections(new Set([typedTemplateData.json_definition.sections[0].id]));
+    const sections = typedTemplateData.json_definition?.sections;
+    if (sections && sections.length > 0) {
+      setExpandedSections(new Set([sections[0].id]));
     }
 
     setIsLoading(false);
