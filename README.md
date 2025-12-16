@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Creative Composites - Machine Checklist System
+
+A comprehensive accountability checklist system for CNC machines and manufacturing processes, built for Creative Composites. This system helps operators complete machine-specific checklists, tracks preventative maintenance, ensures traceability, and provides full audit trails.
+
+## Features
+
+### Core Functionality
+- **Machine Management**: Register and manage CNC machines (MAKA, Dieffenbacher presses, etc.)
+- **Checklist Builder**: Visual template builder with sections, items, and conditional logic
+- **Operator Workflow**: Mobile-friendly checklist execution with photo attachments and comments
+- **Maintenance Scheduling**: Time-based and usage-based preventative maintenance
+- **Reporting & Analytics**: Compliance dashboards, issue tracking, and audit trails
+
+### Checklist Features
+- Yes/No, numeric, text, photo, and selection item types
+- Critical items that block completion if failed
+- Supervisor override capability
+- Conditional comment/photo requirements
+- Digital signatures
+
+### Role-Based Access
+- **Admin**: Full system access
+- **Supervisor**: Template management, override capabilities
+- **Operator**: Run checklists, report issues
+- **Maintenance**: Maintenance task management
+- **Quality**: Reports and audit access
+
+## Tech Stack
+
+- **Frontend**: Next.js 14 (App Router) + React + TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Styling**: Tailwind CSS (Creative Composites brand colors)
+- **AI**: OpenAI API for template generation
+- **Deployment**: Vercel
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Supabase account
 
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd creative
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+Create a `.env.local` file with:
+```env
+NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+OPENAI_API_KEY=your-openai-api-key (optional, for AI template generation)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Set up the database:
+- Create a new Supabase project
+- Run the SQL schema in `supabase/schema.sql` in the Supabase SQL Editor
+- This creates all tables, indexes, triggers, and sample data
 
-## Learn More
+5. Run the development server:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+6. Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+/src
+  /app                    # Next.js App Router pages
+    /(auth)               # Authentication pages (login, signup)
+    /(dashboard)          # Main application pages
+      /admin              # Admin pages (templates, users, settings)
+      /checklists         # Checklist execution and history
+      /machines           # Machine management
+      /maintenance        # Maintenance scheduling
+      /reports            # Analytics and reporting
+  /components
+    /ui                   # Reusable UI components
+    /layout               # Layout components (sidebar, header)
+  /contexts               # React contexts (auth)
+  /lib
+    /supabase             # Supabase client configuration
+    /openai               # AI template generation
+    /utils.ts             # Utility functions
+  /types
+    /database.ts          # TypeScript types for database
+/supabase
+  /schema.sql             # Database schema
+```
 
-## Deploy on Vercel
+## Database Schema
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Key tables:
+- `users` - User profiles with roles
+- `machines` - CNC machines and equipment
+- `moulds` - Mould/tooling management
+- `checklist_templates` - Checklist template definitions
+- `checklist_runs` - Completed/in-progress checklists
+- `checklist_answers` - Individual checklist responses
+- `maintenance_tasks` - Scheduled maintenance
+- `issues` - Issue tracking and resolution
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Brand Colors (Creative Composites)
+
+- Primary Blue: `#0057A8`
+- Secondary Gray: `#4A5568`
+- Background: `#FFFFFF`
+- Success: `#10B981`
+- Warning: `#F59E0B`
+- Danger: `#EF4444`
+
+## Deployment
+
+The application is configured for deployment on Vercel:
+
+```bash
+npm run build
+```
+
+Then deploy to Vercel or run:
+```bash
+npx vercel
+```
+
+## License
+
+Private - Creative Composites
+
+## Support
+
+For support, contact the development team.
