@@ -11,7 +11,7 @@ export { Badge } from "./badge";
 export type { BadgeProps } from "./badge";
 
 export { Select } from "./select";
-export type { SelectProps, SelectOption } from "./select";
+export type { SelectOption, SelectProps } from "./select";
 
 export { Textarea } from "./textarea";
 export type { TextareaProps } from "./textarea";
@@ -19,4 +19,5 @@ export type { TextareaProps } from "./textarea";
 export { Checkbox } from "./checkbox";
 export type { CheckboxProps } from "./checkbox";
 
+export { ImageUpload } from "./image-upload";
 

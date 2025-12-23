@@ -83,7 +83,7 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
   const fetchData = async () => {
     setIsLoading(true);
 
-    const { data: machineData } = await supabase
+    const { data: machineData, error: machineError } = await supabase
       .from("machines")
       .select(`
         *,
@@ -92,7 +92,12 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
       .eq("id", resolvedParams.id)
       .single();
 
+    if (machineError) {
+      console.error("Error fetching machine:", machineError);
+    }
+
     if (!machineData) {
+      console.log("No machine data found for ID:", resolvedParams.id);
       router.push("/work-centres");
       return;
     }
@@ -131,7 +136,7 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
       .order("started_at", { ascending: false })
       .limit(5);
 
-    setRecentChecklists(checklistsData || []);
+    setRecentChecklists((checklistsData || []) as unknown as ChecklistRun[]);
 
     setIsLoading(false);
   };
@@ -294,22 +299,22 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
                 <p style={{ fontWeight: '500', color: '#111827', margin: 0 }}>{machine.serial_number || '-'}</p>
               </div>
               <div>
-                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Year</p>
-                <p style={{ fontWeight: '500', color: '#111827', margin: 0 }}>{machine.year || '-'}</p>
-              </div>
-              <div>
                 <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Location</p>
                 <p style={{ fontWeight: '500', color: '#111827', margin: 0 }}>{machine.location || '-'}</p>
+              </div>
+              <div>
+                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Risk Category</p>
+                <p style={{ fontWeight: '500', color: '#111827', margin: 0, textTransform: 'capitalize' }}>{machine.risk_category?.replace('_', ' ') || '-'}</p>
               </div>
               <div>
                 <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Added</p>
                 <p style={{ fontWeight: '500', color: '#111827', margin: 0 }}>{formatDate(machine.created_at)}</p>
               </div>
             </div>
-            {machine.notes && (
+            {machine.description && (
               <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e2e8f0' }}>
-                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Notes</p>
-                <p style={{ color: '#374151', margin: 0 }}>{machine.notes}</p>
+                <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '4px' }}>Description</p>
+                <p style={{ color: '#374151', margin: 0 }}>{machine.description}</p>
               </div>
             )}
           </div>

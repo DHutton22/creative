@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { ImageUpload } from "@/components/ui/image-upload";
 import Link from "next/link";
 
 interface ChecklistRun {
@@ -20,14 +21,20 @@ interface ChecklistRun {
 
 interface ChecklistItem {
   id: string;
-  label: string;
+  label?: string;
+  question?: string; // Legacy format
   type: "yes_no" | "numeric" | "text";
   critical?: boolean;
   required?: boolean;
   hint?: string;
+  guidance?: string; // Legacy format
   minValue?: number;
   maxValue?: number;
+  min_value?: number; // Legacy format
+  max_value?: number; // Legacy format
   unit?: string;
+  referenceImageUrl?: string; // Reference image
+  reference_image_url?: string; // Legacy format
 }
 
 interface ChecklistSection {
@@ -57,6 +64,7 @@ interface ChecklistAnswer {
   item_id: string;
   value: boolean | string | number | null;
   comment?: string | null;
+  photo_url?: string | null;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -80,6 +88,7 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
   const [answers, setAnswers] = useState<Map<string, ChecklistAnswer>>(new Map());
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [commentingItemId, setCommentingItemId] = useState<string | null>(null);
+  const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -124,16 +133,27 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     setIsLoading(false);
   };
 
-  const saveAnswer = async (itemId: string, value: boolean | string | number, comment?: string) => {
+  const saveAnswer = async (sectionId: string, itemId: string, value: boolean | string | number, comment?: string, photoUrl?: string) => {
     if (!run) return;
     setIsSaving(true);
 
     const existingAnswer = answers.get(itemId);
-    const answerData = {
+    const answerData: {
+      run_id: string;
+      section_id: string;
+      item_id: string;
+      value: boolean | string | number;
+      comment: string | null;
+      photo_url: string | null;
+      answered_at: string;
+      id?: string;
+    } = {
       run_id: run.id,
+      section_id: sectionId,
       item_id: itemId,
       value,
       comment: comment || null,
+      photo_url: photoUrl !== undefined ? photoUrl : (existingAnswer?.photo_url || null),
       answered_at: new Date().toISOString(),
     };
 
@@ -144,13 +164,18 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
           .from("checklist_answers")
           .update(answerData)
           .eq("id", existingAnswer.id);
+        answerData.id = existingAnswer.id;
       } else {
         // Insert new answer
-        const { data } = await supabase
+        const { data, error: uploadError } = await supabase
           .from("checklist_answers")
           .insert(answerData)
           .select("id")
           .single();
+        
+        if (uploadError) {
+          console.error("Error inserting answer:", uploadError);
+        }
         
         if (data) {
           answerData.id = data.id;
@@ -158,7 +183,7 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
       }
 
       // Update local state
-      setAnswers(new Map(answers.set(itemId, { ...answerData, id: existingAnswer?.id || answerData.id })));
+      setAnswers(new Map(answers.set(itemId, { ...answerData, id: answerData.id } as ChecklistAnswer)));
     } catch (err) {
       console.error("Error saving answer:", err);
     }
@@ -166,22 +191,40 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     setIsSaving(false);
   };
 
-  const handleAnswer = (itemId: string, value: boolean) => {
+  const handleAnswer = (sectionId: string, itemId: string, value: boolean) => {
     const existingAnswer = answers.get(itemId);
-    saveAnswer(itemId, value, existingAnswer?.comment || undefined);
+    saveAnswer(sectionId, itemId, value, existingAnswer?.comment || undefined, existingAnswer?.photo_url || undefined);
   };
 
-  const handleAddComment = (itemId: string) => {
+  const [commentingSectionId, setCommentingSectionId] = useState<string | null>(null);
+  const [uploadingSectionId, setUploadingSectionId] = useState<string | null>(null);
+
+  const handleAddComment = (sectionId: string, itemId: string) => {
+    setCommentingSectionId(sectionId);
     setCommentingItemId(itemId);
     setCommentText(answers.get(itemId)?.comment || "");
   };
 
+  const handleAddPhoto = (sectionId: string, itemId: string) => {
+    setUploadingSectionId(sectionId);
+    setUploadingItemId(itemId);
+  };
+
+  const handlePhotoUpload = (itemId: string, photoUrl: string) => {
+    if (!uploadingSectionId) return;
+    const existingAnswer = answers.get(itemId);
+    if (existingAnswer) {
+      saveAnswer(uploadingSectionId, itemId, existingAnswer.value as boolean | string | number, existingAnswer.comment || undefined, photoUrl);
+    }
+  };
+
   const handleSaveComment = () => {
-    if (!commentingItemId) return;
+    if (!commentingItemId || !commentingSectionId) return;
     const existingAnswer = answers.get(commentingItemId);
     if (existingAnswer) {
-      saveAnswer(commentingItemId, existingAnswer.value as boolean, commentText);
+      saveAnswer(commentingSectionId, commentingItemId, existingAnswer.value as boolean | string | number, commentText, existingAnswer.photo_url || undefined);
     }
+    setCommentingSectionId(null);
     setCommentingItemId(null);
     setCommentText("");
   };
@@ -244,11 +287,14 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
       const answer = answers.get(item.id);
       if (!answer || answer.value === null || answer.value === undefined) return false;
       
+      const minVal = item.minValue ?? item.min_value;
+      const maxVal = item.maxValue ?? item.max_value;
+      
       if (item.type === "yes_no") {
         return answer.value === false;
-      } else if (item.type === "numeric" && item.minValue !== undefined && item.maxValue !== undefined) {
+      } else if (item.type === "numeric" && minVal !== undefined && maxVal !== undefined) {
         const numVal = Number(answer.value);
-        return numVal < item.minValue || numVal > item.maxValue;
+        return numVal < minVal || numVal > maxVal;
       }
       return false;
     }).length;
@@ -377,14 +423,18 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
               let isPassed = false;
               let isFailed = false;
               
+              // Handle both legacy (min_value/max_value) and new (minValue/maxValue) formats
+              const minVal = item.minValue ?? item.min_value;
+              const maxVal = item.maxValue ?? item.max_value;
+              
               if (item.type === "yes_no") {
                 isPassed = answer?.value === true;
                 isFailed = answer?.value === false;
               } else if (item.type === "numeric" && hasAnswer) {
                 const numVal = Number(answer?.value);
-                if (item.minValue !== undefined && item.maxValue !== undefined) {
-                  isPassed = numVal >= item.minValue && numVal <= item.maxValue;
-                  isFailed = numVal < item.minValue || numVal > item.maxValue;
+                if (minVal !== undefined && maxVal !== undefined) {
+                  isPassed = numVal >= minVal && numVal <= maxVal;
+                  isFailed = numVal < minVal || numVal > maxVal;
                 } else {
                   isPassed = true; // No range = any value is OK
                 }
@@ -423,25 +473,51 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
                         <div>
                           <p style={{ fontWeight: '500', color: '#111827', margin: 0, fontSize: '15px' }}>
-                            {item.label}
+                            {item.label || item.question}
                             {item.critical && (
                               <span style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: '#fef3c7', color: '#92400e', fontWeight: '600' }}>CRITICAL</span>
                             )}
                           </p>
-                          {item.hint && (
-                            <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>{item.hint}</p>
+                          {(item.hint || item.guidance) && (
+                            <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>{item.hint || item.guidance}</p>
                           )}
                         </div>
                       </div>
 
+                      {/* Reference Image - "It should look like this" */}
+                      {(item.referenceImageUrl || item.reference_image_url) && (
+                        <div style={{ marginBottom: '12px', padding: '12px', background: '#eff6ff', borderRadius: '8px', border: '1px solid #bfdbfe' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <svg style={{ width: '16px', height: '16px', color: '#0057A8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#0057A8' }}>
+                              Reference: It should look like this
+                            </span>
+                          </div>
+                          <img
+                            src={item.referenceImageUrl || item.reference_image_url}
+                            alt="Reference"
+                            style={{
+                              width: '100%',
+                              maxWidth: '300px',
+                              height: 'auto',
+                              borderRadius: '6px',
+                              border: '1px solid #bfdbfe',
+                            }}
+                          />
+                        </div>
+                      )}
+
                       {/* Answer Input - varies by type */}
                       {item.type === "yes_no" && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <button
-                            onClick={() => handleAnswer(item.id, true)}
+                            onClick={() => handleAnswer(currentSection.id, item.id, true)}
                             disabled={isSaving}
                             style={{
                               flex: 1,
+                              minWidth: '120px',
                               padding: '12px',
                               borderRadius: '8px',
                               border: isPassed ? '2px solid #22c55e' : '1px solid #e2e8f0',
@@ -462,10 +538,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                             YES
                           </button>
                           <button
-                            onClick={() => handleAnswer(item.id, false)}
+                            onClick={() => handleAnswer(currentSection.id, item.id, false)}
                             disabled={isSaving}
                             style={{
                               flex: 1,
+                              minWidth: '120px',
                               padding: '12px',
                               borderRadius: '8px',
                               border: isFailed ? '2px solid #ef4444' : '1px solid #e2e8f0',
@@ -486,45 +563,64 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                             NO
                           </button>
                           {answer && (
-                            <button
-                              onClick={() => handleAddComment(item.id)}
-                              style={{
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                background: answer.comment ? '#fef3c7' : 'white',
-                                color: '#374151',
-                                cursor: 'pointer',
-                              }}
-                              title="Add comment"
-                            >
-                              <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                              </svg>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleAddComment(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.comment ? '#fef3c7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Add comment"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleAddPhoto(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.photo_url ? '#dcfce7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Upload photo"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
 
                       {item.type === "numeric" && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', minWidth: '200px' }}>
                             <input
                               type="number"
-                              placeholder={item.minValue !== undefined && item.maxValue !== undefined 
-                                ? `${item.minValue} - ${item.maxValue}` 
+                              placeholder={minVal !== undefined && maxVal !== undefined 
+                                ? `${minVal} - ${maxVal}` 
                                 : "Enter value"}
                               value={answer?.value !== undefined && answer?.value !== null ? String(answer.value) : ""}
                               onChange={(e) => {
                                 const val = e.target.value === "" ? null : Number(e.target.value);
                                 if (val !== null) {
-                                  saveAnswer(item.id, val);
+                                  saveAnswer(currentSection.id, item.id, val);
                                 }
                               }}
                               onBlur={(e) => {
                                 const val = e.target.value === "" ? null : Number(e.target.value);
                                 if (val !== null) {
-                                  saveAnswer(item.id, val);
+                                  saveAnswer(currentSection.id, item.id, val);
                                 }
                               }}
                               style={{
@@ -540,50 +636,70 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                               <span style={{ fontSize: '14px', color: '#6b7280', fontWeight: '500' }}>{item.unit}</span>
                             )}
                           </div>
-                          {item.minValue !== undefined && item.maxValue !== undefined && (
+                          {minVal !== undefined && maxVal !== undefined && (
                             <span style={{ fontSize: '12px', color: '#6b7280', whiteSpace: 'nowrap' }}>
-                              Range: {item.minValue} - {item.maxValue}
+                              Range: {minVal} - {maxVal}
                             </span>
                           )}
                           {answer && (
-                            <button
-                              onClick={() => handleAddComment(item.id)}
-                              style={{
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                background: answer.comment ? '#fef3c7' : 'white',
-                                color: '#374151',
-                                cursor: 'pointer',
-                              }}
-                              title="Add comment"
-                            >
-                              <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                              </svg>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleAddComment(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.comment ? '#fef3c7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Add comment"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleAddPhoto(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.photo_url ? '#dcfce7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Upload photo"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            </>
                           )}
                         </div>
                       )}
 
                       {item.type === "text" && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <input
                             type="text"
                             placeholder="Enter response..."
                             value={answer?.value !== undefined && answer?.value !== null ? String(answer.value) : ""}
                             onChange={(e) => {
                               if (e.target.value) {
-                                saveAnswer(item.id, e.target.value);
+                                saveAnswer(currentSection.id, item.id, e.target.value);
                               }
                             }}
                             onBlur={(e) => {
                               if (e.target.value) {
-                                saveAnswer(item.id, e.target.value);
+                                saveAnswer(currentSection.id, item.id, e.target.value);
                               }
                             }}
                             style={{
                               flex: 1,
+                              minWidth: '200px',
                               padding: '12px',
                               borderRadius: '8px',
                               border: answer ? '2px solid #22c55e' : '1px solid #e2e8f0',
@@ -591,23 +707,70 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                             }}
                           />
                           {answer && (
-                            <button
-                              onClick={() => handleAddComment(item.id)}
-                              style={{
-                                padding: '12px',
-                                borderRadius: '8px',
-                                border: '1px solid #e2e8f0',
-                                background: answer.comment ? '#fef3c7' : 'white',
-                                color: '#374151',
-                                cursor: 'pointer',
-                              }}
-                              title="Add comment"
-                            >
-                              <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-                              </svg>
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleAddComment(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.comment ? '#fef3c7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Add comment"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleAddPhoto(currentSection.id, item.id)}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #e2e8f0',
+                                  background: answer.photo_url ? '#dcfce7' : 'white',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                }}
+                                title="Upload photo"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                            </>
                           )}
+                        </div>
+                      )}
+
+                      {/* Show uploaded photo */}
+                      {answer?.photo_url && (
+                        <div style={{ marginTop: '12px', padding: '12px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <svg style={{ width: '16px', height: '16px', color: '#22c55e' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span style={{ fontSize: '13px', fontWeight: '600', color: '#166534' }}>
+                              Your Photo
+                            </span>
+                          </div>
+                          <img
+                            src={answer.photo_url}
+                            alt="Uploaded"
+                            style={{
+                              width: '100%',
+                              maxWidth: '300px',
+                              height: 'auto',
+                              borderRadius: '6px',
+                              border: '1px solid #bbf7d0',
+                              cursor: 'pointer',
+                            }}
+                            onClick={() => window.open(answer.photo_url!, '_blank')}
+                          />
                         </div>
                       )}
 
@@ -688,6 +851,99 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                 Save Comment
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Upload Modal */}
+      {uploadingItemId && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          padding: '20px',
+        }}>
+          <div style={{ ...cardStyle, width: '100%', maxWidth: '500px', padding: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>Upload Photo</h3>
+            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+              Take a photo or upload an image showing the current state
+            </p>
+            <ImageUpload
+              onUpload={(url) => handlePhotoUpload(uploadingItemId, url)}
+              currentImageUrl={answers.get(uploadingItemId)?.photo_url}
+              bucket="checklist-images"
+              path={`runs/${run?.id}`}
+            />
+            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+              <button
+                onClick={() => { setUploadingItemId(null); setUploadingSectionId(null); }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
+                  background: 'white',
+                  color: '#374151',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remaining Items Warning */}
+      {!allItemsAnswered && (
+        <div style={{ ...cardStyle, padding: '16px', marginBottom: '16px', background: '#fffbeb', borderColor: '#fef3c7' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <svg style={{ width: '20px', height: '20px', color: '#d97706' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span style={{ fontWeight: '600', color: '#92400e' }}>
+              {totalItems - answeredCount} item{totalItems - answeredCount !== 1 ? 's' : ''} remaining
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {sections.map((section) => {
+              const unansweredItems = section.items.filter(item => !answers.has(item.id));
+              if (unansweredItems.length === 0) return null;
+              return (
+                <div key={section.id}>
+                  <button
+                    onClick={() => setCurrentSectionIndex(sections.indexOf(section))}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 12px',
+                      background: 'white',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      width: '100%',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                      {section.title}
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#6b7280' }}>
+                      ({unansweredItems.length} remaining)
+                    </span>
+                    <svg style={{ width: '16px', height: '16px', color: '#9ca3af', marginLeft: 'auto' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

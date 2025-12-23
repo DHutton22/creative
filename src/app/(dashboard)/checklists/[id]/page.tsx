@@ -157,19 +157,17 @@ export default function ChecklistDetailPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      {/* Job Details */}
-      {(run.job_number || run.part_number || run.program_name) && (
+      {/* Job Number */}
+      {run.job_number && (
         <div style={{ ...cardStyle, padding: '16px', marginBottom: '24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <svg style={{ width: '20px', height: '20px', color: '#6b7280' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h3 style={{ fontWeight: '600', color: '#111827', margin: 0 }}>Job Details</h3>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-            {run.job_number && <div><p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Job Number</p><p style={{ fontWeight: '500', margin: '4px 0 0 0' }}>{run.job_number}</p></div>}
-            {run.part_number && <div><p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Part Number</p><p style={{ fontWeight: '500', margin: '4px 0 0 0' }}>{run.part_number}</p></div>}
-            {run.program_name && <div><p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Program</p><p style={{ fontWeight: '500', margin: '4px 0 0 0' }}>{run.program_name}</p></div>}
+            <div>
+              <p style={{ fontSize: '12px', color: '#6b7280', margin: 0 }}>Job Number</p>
+              <p style={{ fontWeight: '600', margin: '2px 0 0 0', fontFamily: 'monospace', letterSpacing: '0.5px' }}>{run.job_number}</p>
+            </div>
           </div>
         </div>
       )}
@@ -199,7 +197,7 @@ export default function ChecklistDetailPage({ params }: { params: Promise<{ id: 
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
                         <p style={{ fontWeight: '500', color: '#111827', margin: 0 }}>
-                          {item.label}
+                          {item.label || item.question}
                           {item.critical && (
                             <span style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 8px', borderRadius: '9999px', background: '#fef3c7', color: '#92400e' }}>Critical</span>
                           )}

@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /* Reset and base styles */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -15,6 +17,7 @@ body {
   line-height: 1.5;
   color: #111827;
   background: #f8fafc;
+  overflow-x: hidden;
 }
 
 /* Remove default button styles */
@@ -50,4 +53,58 @@ input, textarea, select {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* Spinner animation for loading states */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Mobile-friendly utilities */
+@media (max-width: 1023px) {
+  /* Ensure touch targets are at least 44x44px on mobile */
+  button:not(.no-min-size), 
+  a:not(.no-min-size) {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* Sidebar responsive behavior */
+.sidebar-nav {
+  /* Mobile: hidden by default, shown when open */
+}
+
+@media (min-width: 1024px) {
+  /* Desktop: always visible, static position */
+  .sidebar-nav {
+    position: static !important;
+    transform: translateX(0) !important;
+  }
+  
+  /* Hide close button on desktop */
+  .close-sidebar-btn {
+    display: none !important;
+  }
+  
+  /* Hide mobile overlay on desktop */
+  .mobile-overlay {
+    display: none !important;
+  }
+  
+  /* Hide hamburger menu button on desktop */
+  .menu-toggle-btn {
+    display: none !important;
+  }
 }

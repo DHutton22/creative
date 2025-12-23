@@ -7,10 +7,10 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl === "https://placeholder.supabase.co") {
-    // No Supabase configured - allow all routes but redirect root to dashboard
+    // No Supabase configured - allow all routes but redirect root to work-centres
     if (request.nextUrl.pathname === "/") {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/work-centres";
       return NextResponse.redirect(url);
     }
     return NextResponse.next();
@@ -51,28 +51,42 @@ export async function updateSession(request: NextRequest) {
     // Protected routes - redirect to login if not authenticated
     const isAuthRoute = request.nextUrl.pathname.startsWith("/login") || 
                         request.nextUrl.pathname.startsWith("/signup");
-    const isProtectedRoute = request.nextUrl.pathname.startsWith("/dashboard") ||
-                             request.nextUrl.pathname.startsWith("/checklists") ||
+    const isProtectedRoute = request.nextUrl.pathname.startsWith("/checklists") ||
                              request.nextUrl.pathname.startsWith("/maintenance") ||
                              request.nextUrl.pathname.startsWith("/work-centres") ||
+                             request.nextUrl.pathname.startsWith("/machines") ||
                              request.nextUrl.pathname.startsWith("/admin") ||
                              request.nextUrl.pathname.startsWith("/reports");
 
-    if (!user && isProtectedRoute) {
+    // Redirect root to appropriate place
+    if (request.nextUrl.pathname === "/") {
       const url = request.nextUrl.clone();
-      url.pathname = "/login";
+      url.pathname = user ? "/work-centres" : "/login";
       return NextResponse.redirect(url);
     }
 
-    // If user is logged in and tries to access auth routes, redirect to dashboard
+    // Protected routes - redirect to login if not authenticated
+    if (!user && isProtectedRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirectTo", request.nextUrl.pathname);
+      return NextResponse.redirect(url);
+    }
+
+    // If user is logged in and tries to access auth routes, redirect to work-centres
     if (user && isAuthRoute) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = "/work-centres";
       return NextResponse.redirect(url);
     }
   } catch (error) {
     console.error("Middleware error:", error);
-    // On error, allow the request to proceed
+    // On auth error, redirect to login to refresh session
+    if (request.nextUrl.pathname !== "/login" && request.nextUrl.pathname !== "/signup") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

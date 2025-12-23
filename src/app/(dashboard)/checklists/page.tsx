@@ -23,7 +23,7 @@ interface ChecklistRun {
   completed_at: string | null;
   checklist_templates: { name: string } | null;
   machines: { name: string } | null;
-  profiles: { name: string } | null;
+  users: { name: string } | null;
 }
 
 const cardStyle: React.CSSProperties = {
@@ -69,7 +69,7 @@ export default function ChecklistsPage() {
         *,
         checklist_templates (name),
         machines (name),
-        profiles (name)
+        users (name)
       `)
       .order("started_at", { ascending: false })
       .limit(20);
@@ -444,14 +444,14 @@ export default function ChecklistsPage() {
                             {run.machines.name}
                           </span>
                         )}
-                        {run.profiles && (
+                        {run.users && (
                           <>
                             <span>•</span>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                               </svg>
-                              {run.profiles.name}
+                              {run.users.name}
                             </span>
                           </>
                         )}

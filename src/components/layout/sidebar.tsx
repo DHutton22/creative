@@ -4,22 +4,27 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
+import { X } from "lucide-react";
 
 const BRAND_BLUE = '#0057A8';
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/work-centres", label: "Work Centres", icon: "grid" },
   { href: "/checklists", label: "Checklists", icon: "clipboard" },
-  { href: "/maintenance", label: "Maintenance", icon: "wrench" },
-  { href: "/reports", label: "Reports", icon: "chart" },
 ];
 
 const adminItems = [
-  { href: "/admin/templates", label: "Templates", icon: "template" },
+  { href: "/admin/work-centres", label: "Work Centres", icon: "grid" },
+  { href: "/admin/machines", label: "Machines", icon: "machine" },
+  { href: "/admin/templates", label: "Checklist Templates", icon: "template" },
   { href: "/admin/users", label: "Users", icon: "users" },
-  { href: "/admin/settings", label: "Settings", icon: "settings" },
+  { href: "/reports", label: "Reports & Activity", icon: "chart" },
 ];
+
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
 
 const icons: Record<string, React.ReactNode> = {
   home: (
@@ -53,6 +58,11 @@ const icons: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
     </svg>
   ),
+  machine: (
+    <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+    </svg>
+  ),
   users: (
     <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
@@ -66,7 +76,7 @@ const icons: Record<string, React.ReactNode> = {
   ),
 };
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, hasRole, isLoading } = useAuth();
@@ -80,23 +90,37 @@ export function Sidebar() {
   };
 
   const isActive = (href: string) => {
-    if (href === "/dashboard") {
-      return pathname === "/dashboard";
-    }
     return pathname.startsWith(href);
   };
 
+  const handleLinkClick = () => {
+    // Close sidebar on mobile after clicking a link
+    if (onClose) {
+      onClose();
+    }
+  };
+
   return (
-    <aside style={{
-      width: '260px',
-      background: 'white',
-      borderRight: '1px solid #e2e8f0',
-      display: 'flex',
-      flexDirection: 'column',
-      flexShrink: 0,
-    }}>
+    <aside 
+      style={{
+        width: '260px',
+        background: 'white',
+        borderRight: '1px solid #e2e8f0',
+        display: 'flex',
+        flexDirection: 'column',
+        flexShrink: 0,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        height: '100vh',
+        zIndex: 50,
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.3s ease-in-out',
+      }}
+      className="sidebar-nav"
+    >
       {/* Logo */}
-      <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0' }}>
+      <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             width: '40px',
@@ -116,6 +140,28 @@ export function Sidebar() {
             <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Checklist System</p>
           </div>
         </div>
+        
+        {/* Close button for mobile */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            style={{
+              padding: '8px',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#64748b',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            className="close-sidebar-btn"
+            aria-label="Close menu"
+          >
+            <X style={{ width: '20px', height: '20px' }} />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -128,6 +174,7 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleLinkClick}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -157,6 +204,7 @@ export function Sidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={handleLinkClick}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

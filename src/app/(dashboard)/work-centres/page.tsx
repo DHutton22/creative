@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { Machine, MachineStatus } from "@/types/database";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
@@ -34,44 +33,29 @@ export default function WorkCentresPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { hasRole, isLoading: authLoading } = useAuth();
-  const supabase = createClient();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
     try {
-      const { data: wcData, error: wcError } = await supabase
-        .from("work_centres")
-        .select("*")
-        .order("display_order");
-
-      if (wcError) {
-        console.error("Error fetching work centres:", wcError);
-        setError(wcError.message);
-        return;
+      const response = await fetch("/api/work-centres");
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to fetch data");
       }
 
-      const { data: machineData, error: machineError } = await supabase
-        .from("machines")
-        .select("*")
-        .order("name");
-
-      if (machineError) {
-        console.error("Error fetching machines:", machineError);
-        setError(machineError.message);
-        return;
-      }
-
-      setWorkCentres(wcData || []);
-      setMachines(machineData || []);
-    } catch (err) {
+      const data = await response.json();
+      setWorkCentres(data.workCentres || []);
+      setMachines(data.machines || []);
+    } catch (err: any) {
       console.error("Exception fetching data:", err);
-      setError("Failed to load data");
+      setError(err.message || "Failed to load data");
     } finally {
       setIsLoading(false);
     }
-  }, [supabase]);
+  }, []);
 
   useEffect(() => {
     if (!authLoading) {
@@ -136,26 +120,51 @@ export default function WorkCentresPage() {
               </Link>
             )}
           </div>
-          {canManageMachines && (
-            <Link href="/machines/new" style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 16px',
-              background: 'white',
-              border: '1px solid #e2e8f0',
-              color: '#1e293b',
-              borderRadius: '6px',
-              fontWeight: '500',
-              fontSize: '13px',
-              textDecoration: 'none',
-            }}>
-              <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => fetchData()}
+              disabled={isLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 12px',
+                background: 'white',
+                border: '1px solid #e2e8f0',
+                color: '#64748b',
+                borderRadius: '6px',
+                fontWeight: '500',
+                fontSize: '13px',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                opacity: isLoading ? 0.6 : 1,
+              }}
+              title="Refresh data"
+            >
+              <svg style={{ width: '16px', height: '16px', animation: isLoading ? 'spin 1s linear infinite' : 'none' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Add Machine
-            </Link>
-          )}
+            </button>
+            {canManageMachines && (
+              <Link href="/machines/new" style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: 'white',
+                border: '1px solid #e2e8f0',
+                color: '#1e293b',
+                borderRadius: '6px',
+                fontWeight: '500',
+                fontSize: '13px',
+                textDecoration: 'none',
+              }}>
+                <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Add Machine
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Stats Bar */}
@@ -444,6 +453,13 @@ export default function WorkCentresPage() {
           )}
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

@@ -50,15 +50,22 @@ export type ChecklistItemType = "yes_no" | "numeric" | "text";
 
 export interface ChecklistItem {
   id: string;
-  label: string;
+  label?: string;
+  question?: string; // Legacy format
   type: ChecklistItemType;
   required: boolean;
   critical: boolean;
   helpText?: string;
+  hint?: string;
+  guidance?: string; // Legacy format
   minValue?: number;
   maxValue?: number;
+  min_value?: number; // Legacy format
+  max_value?: number; // Legacy format
   unit?: string;
   options?: string[];
+  referenceImageUrl?: string; // Reference image - "it should look like this"
+  reference_image_url?: string; // Legacy format
 }
 
 export interface ChecklistSection {

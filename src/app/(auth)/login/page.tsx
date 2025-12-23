@@ -13,7 +13,7 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard";
+  const redirectTo = searchParams.get("redirectTo") || "/work-centres";
   const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {

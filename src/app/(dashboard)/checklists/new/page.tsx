@@ -43,8 +43,6 @@ function NewChecklistContent() {
   const [selectedMachineId, setSelectedMachineId] = useState(preselectedMachineId || "");
   const [selectedTemplateId, setSelectedTemplateId] = useState(preselectedTemplateId || "");
   const [jobNumber, setJobNumber] = useState("");
-  const [partNumber, setPartNumber] = useState("");
-  const [programName, setProgramName] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +73,24 @@ function NewChecklistContent() {
   const selectedMachine = machines.find(m => m.id === selectedMachineId);
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
 
+  // Generate job number based on machine, date, and sequence
+  const generateJobNumber = (machineName: string) => {
+    const today = new Date();
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const machineCode = machineName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
+    const timeSeq = today.getHours().toString().padStart(2, '0') + today.getMinutes().toString().padStart(2, '0');
+    return `${machineCode}-${dateStr}-${timeSeq}`;
+  };
+
+  // Auto-generate job number when machine is selected
+  useEffect(() => {
+    if (selectedMachine) {
+      setJobNumber(generateJobNumber(selectedMachine.name));
+    } else {
+      setJobNumber("");
+    }
+  }, [selectedMachine]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMachineId || !selectedTemplateId || !user) return;
@@ -92,8 +108,6 @@ function NewChecklistContent() {
           status: "in_progress",
           started_at: new Date().toISOString(),
           job_number: jobNumber || null,
-          part_number: partNumber || null,
-          program_name: programName || null,
         })
         .select("id")
         .single();
@@ -246,71 +260,32 @@ function NewChecklistContent() {
           )}
         </div>
 
-        {/* Job Details (Optional) */}
-        <div style={{ ...cardStyle, padding: '24px', marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
-            Job Details <span style={{ fontWeight: '400', color: '#6b7280' }}>(Optional)</span>
-          </h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <label>
-              <span style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>
-                Job Number
-              </span>
-              <input
-                type="text"
-                value={jobNumber}
-                onChange={(e) => setJobNumber(e.target.value)}
-                placeholder="e.g. JOB-2024-001"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                }}
-              />
-            </label>
-
-            <label>
-              <span style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>
-                Part Number
-              </span>
-              <input
-                type="text"
-                value={partNumber}
-                onChange={(e) => setPartNumber(e.target.value)}
-                placeholder="e.g. PART-A123"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                }}
-              />
-            </label>
-
-            <label>
-              <span style={{ display: 'block', fontSize: '12px', fontWeight: '500', color: '#6b7280', marginBottom: '4px' }}>
-                Program Name
-              </span>
-              <input
-                type="text"
-                value={programName}
-                onChange={(e) => setProgramName(e.target.value)}
-                placeholder="e.g. PROG-001"
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                }}
-              />
-            </label>
+        {/* Job Number */}
+        {selectedMachineId && (
+          <div style={{ ...cardStyle, padding: '24px', marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
+              Job Number
+            </h3>
+            
+            <div style={{ 
+              padding: '16px', 
+              background: '#f8fafc', 
+              borderRadius: '8px', 
+              border: '1px solid #e2e8f0',
+              fontFamily: 'monospace',
+              fontSize: '18px',
+              fontWeight: '600',
+              color: BRAND_BLUE,
+              textAlign: 'center',
+              letterSpacing: '1px',
+            }}>
+              {jobNumber}
+            </div>
+            <p style={{ fontSize: '12px', color: '#6b7280', margin: '8px 0 0 0', textAlign: 'center' }}>
+              Auto-generated: Machine Code + Date + Time
+            </p>
           </div>
-        </div>
+        )}
 
         {/* Error Message */}
         {error && (
