@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { createClient } from "@/lib/supabase/client";
-import { X } from "lucide-react";
-
-const BRAND_BLUE = '#0057A8';
+import { X, LogOut } from "lucide-react";
+import { BRAND } from "@/lib/branding";
 
 const navItems = [
+  { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/work-centres", label: "Work Centres", icon: "grid" },
   { href: "/checklists", label: "Checklists", icon: "clipboard" },
 ];
@@ -94,7 +95,6 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   };
 
   const handleLinkClick = () => {
-    // Close sidebar on mobile after clicking a link
     if (onClose) {
       onClose();
     }
@@ -104,7 +104,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
     <aside 
       style={{
         width: '260px',
-        background: 'white',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
         borderRight: '1px solid #e2e8f0',
         display: 'flex',
         flexDirection: 'column',
@@ -115,29 +115,55 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         height: '100vh',
         zIndex: 50,
         transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-        transition: 'transform 0.3s ease-in-out',
+        transition: 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        boxShadow: isOpen ? '4px 0 24px rgba(0, 0, 0, 0.08)' : 'none',
       }}
       className="sidebar-nav"
     >
       {/* Logo */}
-      <div style={{ padding: '20px', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ 
+        padding: '20px', 
+        borderBottom: '1px solid #e2e8f0', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        background: 'linear-gradient(135deg, rgba(0, 87, 168, 0.02) 0%, transparent 100%)',
+      }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '40px',
-            height: '40px',
-            background: BRAND_BLUE,
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+            borderRadius: '12px',
+            padding: '8px',
+            boxShadow: '0 2px 8px rgba(0, 87, 168, 0.1)',
           }}>
-            <svg style={{ width: '24px', height: '24px', color: 'white' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
+            <Image
+              src={BRAND.logos.ccBlue}
+              alt="Creative Composites"
+              width={32}
+              height={32}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </div>
           <div>
-            <h1 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', margin: 0 }}>Creative Composites</h1>
-            <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Checklist System</p>
+            <h1 style={{ 
+              fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+              fontSize: '15px', 
+              fontWeight: '700', 
+              color: '#1e293b', 
+              margin: 0,
+              letterSpacing: '-0.01em',
+            }}>
+              {BRAND.company.name}
+            </h1>
+            <p style={{ 
+              fontSize: '11px', 
+              color: '#64748b', 
+              margin: 0,
+              fontWeight: 500,
+            }}>
+              {BRAND.company.tagline}
+            </p>
           </div>
         </div>
         
@@ -151,13 +177,22 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               border: 'none',
               cursor: 'pointer',
               color: '#64748b',
-              borderRadius: '6px',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              transition: 'background 0.15s, color 0.15s',
             }}
             className="close-sidebar-btn"
             aria-label="Close menu"
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#f1f5f9';
+              e.currentTarget.style.color = '#374151';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#64748b';
+            }}
           >
             <X style={{ width: '20px', height: '20px' }} />
           </button>
@@ -167,10 +202,19 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       {/* Navigation */}
       <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
         <div style={{ marginBottom: '24px' }}>
-          <p style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px', marginBottom: '8px' }}>
+          <p style={{ 
+            fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
+            fontSize: '11px', 
+            fontWeight: '600', 
+            color: '#94a3b8', 
+            textTransform: 'uppercase', 
+            letterSpacing: '0.08em', 
+            padding: '0 10px', 
+            marginBottom: '10px',
+          }}>
             Main Menu
           </p>
-          {navItems.map((item) => (
+          {navItems.map((item, index) => (
             <Link
               key={item.href}
               href={item.href}
@@ -179,17 +223,40 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                padding: '10px 12px',
-                borderRadius: '8px',
-                marginBottom: '2px',
+                padding: '11px 12px',
+                borderRadius: '10px',
+                marginBottom: '4px',
                 textDecoration: 'none',
-                color: isActive(item.href) ? BRAND_BLUE : '#64748b',
-                background: isActive(item.href) ? '#eff6ff' : 'transparent',
-                fontWeight: isActive(item.href) ? '500' : '400',
-                transition: 'all 0.15s',
+                color: isActive(item.href) ? BRAND.PRIMARY_BLUE : '#64748b',
+                background: isActive(item.href) ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                fontWeight: isActive(item.href) ? '600' : '500',
+                fontSize: '14px',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                boxShadow: isActive(item.href) ? 'inset 0 0 0 1px rgba(0, 87, 168, 0.1)' : 'none',
+                animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 50}ms backwards`,
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.background = '#f1f5f9';
+                  e.currentTarget.style.color = '#374151';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive(item.href)) {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#64748b';
+                }
               }}
             >
-              {icons[item.icon]}
+              <span style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+              }}>
+                {icons[item.icon]}
+              </span>
               {item.label}
             </Link>
           ))}
@@ -197,10 +264,19 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
         {isAdmin && (
           <div>
-            <p style={{ fontSize: '11px', fontWeight: '600', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0 8px', marginBottom: '8px' }}>
+            <p style={{ 
+              fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
+              fontSize: '11px', 
+              fontWeight: '600', 
+              color: '#94a3b8', 
+              textTransform: 'uppercase', 
+              letterSpacing: '0.08em', 
+              padding: '0 10px', 
+              marginBottom: '10px',
+            }}>
               Admin
             </p>
-            {adminItems.map((item) => (
+            {adminItems.map((item, index) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -209,17 +285,40 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '12px',
-                  padding: '10px 12px',
-                  borderRadius: '8px',
-                  marginBottom: '2px',
+                  padding: '11px 12px',
+                  borderRadius: '10px',
+                  marginBottom: '4px',
                   textDecoration: 'none',
-                  color: isActive(item.href) ? BRAND_BLUE : '#64748b',
-                  background: isActive(item.href) ? '#eff6ff' : 'transparent',
-                  fontWeight: isActive(item.href) ? '500' : '400',
-                  transition: 'all 0.15s',
+                  color: isActive(item.href) ? BRAND.PRIMARY_BLUE : '#64748b',
+                  background: isActive(item.href) ? 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)' : 'transparent',
+                  fontWeight: isActive(item.href) ? '600' : '500',
+                  fontSize: '14px',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                  boxShadow: isActive(item.href) ? 'inset 0 0 0 1px rgba(0, 87, 168, 0.1)' : 'none',
+                  animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${(navItems.length + index) * 50}ms backwards`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive(item.href)) {
+                    e.currentTarget.style.background = '#f1f5f9';
+                    e.currentTarget.style.color = '#374151';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive(item.href)) {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.color = '#64748b';
+                  }
                 }}
               >
-                {icons[item.icon]}
+                <span style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '20px',
+                  height: '20px',
+                }}>
+                  {icons[item.icon]}
+                </span>
                 {item.label}
               </Link>
             ))}
@@ -228,54 +327,107 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       </nav>
 
       {/* User */}
-      <div style={{ padding: '16px', borderTop: '1px solid #e2e8f0' }}>
+      <div style={{ 
+        padding: '16px', 
+        borderTop: '1px solid #e2e8f0',
+        background: 'linear-gradient(180deg, transparent 0%, rgba(0, 87, 168, 0.02) 100%)',
+      }}>
         {isLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '36px', height: '36px', background: '#f1f5f9', borderRadius: '50%' }} />
+            <div style={{ 
+              width: '40px', 
+              height: '40px', 
+              background: 'linear-gradient(90deg, #f1f5f9 0%, #e5e7eb 50%, #f1f5f9 100%)',
+              backgroundSize: '200% 100%',
+              animation: 'shimmer 1.5s ease-in-out infinite',
+              borderRadius: '50%',
+            }} />
             <div style={{ flex: 1 }}>
-              <div style={{ height: '14px', background: '#f1f5f9', borderRadius: '4px', width: '70%', marginBottom: '4px' }} />
-              <div style={{ height: '12px', background: '#f1f5f9', borderRadius: '4px', width: '50%' }} />
+              <div style={{ 
+                height: '14px', 
+                background: 'linear-gradient(90deg, #f1f5f9 0%, #e5e7eb 50%, #f1f5f9 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+                borderRadius: '4px', 
+                width: '70%', 
+                marginBottom: '6px',
+              }} />
+              <div style={{ 
+                height: '12px', 
+                background: 'linear-gradient(90deg, #f1f5f9 0%, #e5e7eb 50%, #f1f5f9 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+                borderRadius: '4px', 
+                width: '50%',
+              }} />
             </div>
           </div>
         ) : user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '36px',
-              height: '36px',
-              background: BRAND_BLUE,
-              borderRadius: '50%',
+              width: '40px',
+              height: '40px',
+              background: `linear-gradient(135deg, ${BRAND.PRIMARY_BLUE} 0%, ${BRAND.PRIMARY_BLUE_DARK} 100%)`,
+              borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
-              fontWeight: '600',
-              fontSize: '14px',
+              fontWeight: '700',
+              fontSize: '15px',
+              fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+              boxShadow: '0 2px 8px rgba(0, 87, 168, 0.25)',
             }}>
               {user.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontWeight: '500', color: '#1e293b', margin: 0, fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <p style={{ 
+                fontWeight: '600', 
+                color: '#1e293b', 
+                margin: 0, 
+                fontSize: '14px', 
+                whiteSpace: 'nowrap', 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis',
+                fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
+              }}>
                 {user.name || 'User'}
               </p>
-              <p style={{ fontSize: '12px', color: '#64748b', margin: 0, textTransform: 'capitalize' }}>
+              <p style={{ 
+                fontSize: '12px', 
+                color: '#64748b', 
+                margin: 0, 
+                textTransform: 'capitalize',
+                fontWeight: 500,
+              }}>
                 {user.role}
               </p>
             </div>
             <button
               onClick={handleSignOut}
               style={{
-                padding: '8px',
+                padding: '10px',
                 background: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
                 color: '#64748b',
-                borderRadius: '6px',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'background 0.15s, color 0.15s',
               }}
               title="Sign out"
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#fef2f2';
+                e.currentTarget.style.color = '#dc2626';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#64748b';
+              }}
             >
-              <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-              </svg>
+              <LogOut style={{ width: '18px', height: '18px' }} />
             </button>
           </div>
         ) : (
@@ -283,13 +435,24 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             href="/login"
             style={{
               display: 'block',
-              padding: '10px',
+              padding: '12px',
               textAlign: 'center',
-              background: BRAND_BLUE,
+              background: `linear-gradient(135deg, ${BRAND.PRIMARY_BLUE} 0%, ${BRAND.PRIMARY_BLUE_DARK} 100%)`,
               color: 'white',
-              borderRadius: '8px',
+              borderRadius: '10px',
               textDecoration: 'none',
-              fontWeight: '500',
+              fontWeight: '600',
+              fontSize: '14px',
+              boxShadow: '0 4px 12px rgba(0, 87, 168, 0.25)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 87, 168, 0.35)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 87, 168, 0.25)';
             }}
           >
             Sign In

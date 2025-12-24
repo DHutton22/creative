@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { BRAND } from "@/lib/branding";
 
 export default function SignUpPage() {
   const [name, setName] = useState("");
@@ -81,7 +83,7 @@ export default function SignUpPage() {
             </p>
             <button
               onClick={() => router.push("/login")}
-              style={{ width: '100%', padding: '12px', background: '#0057A8', color: 'white', fontWeight: '600', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
+              style={{ width: '100%', padding: '12px', background: BRAND.PRIMARY_BLUE, color: 'white', fontWeight: '600', border: 'none', borderRadius: '8px', cursor: 'pointer' }}
             >
               Back to Sign In
             </button>
@@ -98,22 +100,25 @@ export default function SignUpPage() {
         style={{ 
           display: 'none',
           width: '50%',
-          background: 'linear-gradient(135deg, #0057A8 0%, #003d75 50%, #002851 100%)',
+          background: `linear-gradient(135deg, ${BRAND.PRIMARY_BLUE} 0%, ${BRAND.PRIMARY_BLUE_DARK} 50%, ${BRAND.PRIMARY_BLUE_DARKER} 100%)`,
           padding: '48px',
           flexDirection: 'column',
           justifyContent: 'space-between'
         }}
         className="lg:flex"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '48px', height: '48px', background: 'rgba(255,255,255,0.1)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg style={{ width: '28px', height: '28px', color: 'white' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <Image
+            src={BRAND.logos.ccWhite}
+            alt="Creative Composites"
+            width={48}
+            height={48}
+            style={{ objectFit: 'contain' }}
+            priority
+          />
           <div>
-            <h1 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Creative Composites</h1>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', margin: 0 }}>Machine Checklist System</p>
+            <h1 style={{ color: 'white', fontSize: '20px', fontWeight: 'bold', margin: 0 }}>{BRAND.company.name}</h1>
+            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', margin: 0 }}>{BRAND.company.tagline}</p>
           </div>
         </div>
         
@@ -150,13 +155,18 @@ export default function SignUpPage() {
         <div style={{ width: '100%', maxWidth: '400px' }}>
           {/* Mobile logo */}
           <div className="lg:hidden" style={{ textAlign: 'center', marginBottom: '32px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '64px', height: '64px', background: '#0057A8', borderRadius: '16px', marginBottom: '16px' }}>
-              <svg style={{ width: '32px', height: '32px', color: 'white' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
+            <div style={{ marginBottom: '16px' }}>
+              <Image
+                src={BRAND.logos.ccBlue}
+                alt="Creative Composites"
+                width={64}
+                height={64}
+                style={{ objectFit: 'contain', margin: '0 auto' }}
+                priority
+              />
             </div>
-            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 4px' }}>Creative Composites</h1>
-            <p style={{ color: '#6b7280', margin: 0 }}>Machine Checklist System</p>
+            <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#111827', margin: '0 0 4px' }}>{BRAND.company.name}</h1>
+            <p style={{ color: '#6b7280', margin: 0 }}>{BRAND.company.tagline}</p>
           </div>
 
           <div style={{ marginBottom: '32px' }}>
@@ -177,7 +187,7 @@ export default function SignUpPage() {
             <div style={{ marginBottom: '20px' }}>
               <label htmlFor="name" style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Full name</label>
               <input id="name" type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="John Smith" required autoComplete="name"
-                onFocus={(e) => { e.target.style.borderColor = '#0057A8'; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = BRAND.PRIMARY_BLUE; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
               />
             </div>
@@ -185,7 +195,7 @@ export default function SignUpPage() {
             <div style={{ marginBottom: '20px' }}>
               <label htmlFor="email" style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Email address</label>
               <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={inputStyle} placeholder="you@company.com" required autoComplete="email"
-                onFocus={(e) => { e.target.style.borderColor = '#0057A8'; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = BRAND.PRIMARY_BLUE; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
               />
             </div>
@@ -193,7 +203,7 @@ export default function SignUpPage() {
             <div style={{ marginBottom: '20px' }}>
               <label htmlFor="password" style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Password</label>
               <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={inputStyle} placeholder="Create a strong password" required autoComplete="new-password"
-                onFocus={(e) => { e.target.style.borderColor = '#0057A8'; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = BRAND.PRIMARY_BLUE; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
               />
               <p style={{ marginTop: '6px', fontSize: '14px', color: '#6b7280' }}>Must be at least 8 characters</p>
@@ -202,7 +212,7 @@ export default function SignUpPage() {
             <div style={{ marginBottom: '24px' }}>
               <label htmlFor="confirmPassword" style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '8px' }}>Confirm password</label>
               <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} style={inputStyle} placeholder="Confirm your password" required autoComplete="new-password"
-                onFocus={(e) => { e.target.style.borderColor = '#0057A8'; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
+                onFocus={(e) => { e.target.style.borderColor = BRAND.PRIMARY_BLUE; e.target.style.boxShadow = '0 0 0 3px rgba(0,87,168,0.1)'; }}
                 onBlur={(e) => { e.target.style.borderColor = '#d1d5db'; e.target.style.boxShadow = 'none'; }}
               />
             </div>
@@ -210,7 +220,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={isLoading}
-              style={{ width: '100%', padding: '12px 16px', background: isLoading ? '#6b7280' : '#0057A8', color: 'white', fontWeight: '600', fontSize: '16px', border: 'none', borderRadius: '8px', cursor: isLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+              style={{ width: '100%', padding: '12px 16px', background: isLoading ? '#6b7280' : BRAND.PRIMARY_BLUE, color: 'white', fontWeight: '600', fontSize: '16px', border: 'none', borderRadius: '8px', cursor: isLoading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
             >
               {isLoading ? (
                 <svg style={{ animation: 'spin 1s linear infinite', width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24">
@@ -230,7 +240,7 @@ export default function SignUpPage() {
 
           <p style={{ marginTop: '32px', textAlign: 'center', color: '#6b7280' }}>
             Already have an account?{" "}
-            <Link href="/login" style={{ color: '#0057A8', fontWeight: '600', textDecoration: 'none' }}>Sign in</Link>
+            <Link href="/login" style={{ color: BRAND.PRIMARY_BLUE, fontWeight: '600', textDecoration: 'none' }}>Sign in</Link>
           </p>
 
           <p style={{ marginTop: '48px', paddingTop: '32px', borderTop: '1px solid #e5e7eb', textAlign: 'center', color: '#9ca3af', fontSize: '14px' }}>

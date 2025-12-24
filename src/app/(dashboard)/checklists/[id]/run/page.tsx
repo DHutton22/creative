@@ -26,6 +26,7 @@ interface ChecklistItem {
   type: "yes_no" | "numeric" | "text";
   critical?: boolean;
   required?: boolean;
+  photoRequired?: boolean; // Requires photo upload
   hint?: string;
   guidance?: string; // Legacy format
   minValue?: number;
@@ -300,9 +301,18 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     }).length;
   }, 0);
   
+  // Count items with missing required photos
+  const missingPhotos = sections.reduce((acc, section) => {
+    return acc + section.items.filter(item => {
+      if (!item.photoRequired) return false;
+      const answer = answers.get(item.id);
+      return !answer || !answer.photo_url;
+    }).length;
+  }, 0);
+  
   const progress = totalItems > 0 ? (answeredCount / totalItems) * 100 : 0;
 
-  const allItemsAnswered = answeredCount >= totalItems;
+  const allItemsAnswered = answeredCount >= totalItems && missingPhotos === 0;
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -357,6 +367,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
           {failedCount > 0 && (
             <p style={{ fontSize: '12px', color: '#dc2626', margin: '8px 0 0 0' }}>
               ⚠️ {failedCount} item{failedCount > 1 ? 's' : ''} failed
+            </p>
+          )}
+          {missingPhotos > 0 && (
+            <p style={{ fontSize: '12px', color: '#dc2626', margin: '8px 0 0 0' }}>
+              📷 {missingPhotos} required photo{missingPhotos > 1 ? 's' : ''} missing
             </p>
           )}
         </div>
@@ -476,6 +491,9 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                             {item.label || item.question}
                             {item.critical && (
                               <span style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: '#fef3c7', color: '#92400e', fontWeight: '600' }}>CRITICAL</span>
+                            )}
+                            {item.photoRequired && (
+                              <span style={{ marginLeft: '8px', fontSize: '11px', padding: '2px 8px', borderRadius: '9999px', background: '#dbeafe', color: '#1e40af', fontWeight: '600' }}>📷 PHOTO REQUIRED</span>
                             )}
                           </p>
                           {(item.hint || item.guidance) && (
@@ -774,6 +792,20 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                         </div>
                       )}
 
+                      {/* Warning for missing required photo */}
+                      {item.photoRequired && !answer?.photo_url && (
+                        <div style={{ marginTop: '12px', padding: '12px', background: '#fef2f2', borderRadius: '8px', border: '1px solid #fecaca' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <svg style={{ width: '16px', height: '16px', color: '#dc2626' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span style={{ fontSize: '13px', fontWeight: '500', color: '#dc2626' }}>
+                              Photo required - Please upload a photo to continue
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Show existing comment */}
                       {answer?.comment && commentingItemId !== item.id && (
                         <div style={{ marginTop: '8px', padding: '8px 12px', background: '#fffbeb', borderRadius: '6px', border: '1px solid #fef3c7' }}>
@@ -907,13 +939,16 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
             <span style={{ fontWeight: '600', color: '#92400e' }}>
-              {totalItems - answeredCount} item{totalItems - answeredCount !== 1 ? 's' : ''} remaining
+              {totalItems - answeredCount > 0 && `${totalItems - answeredCount} item${totalItems - answeredCount !== 1 ? 's' : ''} remaining`}
+              {totalItems - answeredCount > 0 && missingPhotos > 0 && ' • '}
+              {missingPhotos > 0 && `${missingPhotos} photo${missingPhotos !== 1 ? 's' : ''} required`}
             </span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {sections.map((section) => {
               const unansweredItems = section.items.filter(item => !answers.has(item.id));
-              if (unansweredItems.length === 0) return null;
+              const missingPhotoItems = section.items.filter(item => item.photoRequired && (!answers.get(item.id) || !answers.get(item.id)?.photo_url));
+              if (unansweredItems.length === 0 && missingPhotoItems.length === 0) return null;
               return (
                 <div key={section.id}>
                   <button
@@ -935,7 +970,10 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                       {section.title}
                     </span>
                     <span style={{ fontSize: '12px', color: '#6b7280' }}>
-                      ({unansweredItems.length} remaining)
+                      {unansweredItems.length > 0 && `(${unansweredItems.length} unanswered`}
+                      {unansweredItems.length > 0 && missingPhotoItems.length > 0 && ', '}
+                      {missingPhotoItems.length > 0 && `${missingPhotoItems.length} photo${missingPhotoItems.length !== 1 ? 's' : ''}`}
+                      {(unansweredItems.length > 0 || missingPhotoItems.length > 0) && ')'}
                     </span>
                     <svg style={{ width: '16px', height: '16px', color: '#9ca3af', marginLeft: 'auto' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

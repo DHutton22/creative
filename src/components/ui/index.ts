@@ -1,23 +1,13 @@
-export { Button } from "./button";
-export type { ButtonProps } from "./button";
+// UI Component Library
+// Re-export all UI components for easy importing
 
-export { Input } from "./input";
-export type { InputProps } from "./input";
-
-export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./card";
-export type { CardProps } from "./card";
-
-export { Badge } from "./badge";
-export type { BadgeProps } from "./badge";
-
-export { Select } from "./select";
-export type { SelectOption, SelectProps } from "./select";
-
-export { Textarea } from "./textarea";
-export type { TextareaProps } from "./textarea";
-
-export { Checkbox } from "./checkbox";
-export type { CheckboxProps } from "./checkbox";
-
-export { ImageUpload } from "./image-upload";
-
+export * from "./button";
+export * from "./card";
+export * from "./input";
+export * from "./textarea";
+export * from "./select";
+export * from "./checkbox";
+export * from "./badge";
+export * from "./image-upload";
+export * from "./skeleton";
+export * from "./empty-state";

@@ -41,7 +41,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted pointer-events-none">
               {leftIcon}
             </div>
           )}
@@ -56,8 +56,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               error
                 ? "border-danger focus:ring-danger"
                 : "border-border hover:border-border-dark",
-              leftIcon && "pl-10",
-              rightIcon && "pr-10",
+              leftIcon && "pl-16",
+              rightIcon && "pr-16",
               className
             )}
             {...props}

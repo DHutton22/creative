@@ -47,6 +47,7 @@ export interface MachineInsert {
 export type ChecklistType = "pre_run" | "first_off" | "shutdown" | "maintenance" | "safety" | "quality";
 export type TemplateStatus = "draft" | "active" | "deprecated";
 export type ChecklistItemType = "yes_no" | "numeric" | "text";
+export type ChecklistFrequency = "once" | "daily" | "weekly" | "monthly" | "quarterly" | "annually";
 
 export interface ChecklistItem {
   id: string;
@@ -55,6 +56,7 @@ export interface ChecklistItem {
   type: ChecklistItemType;
   required: boolean;
   critical: boolean;
+  photoRequired?: boolean; // Requires user to upload a photo
   helpText?: string;
   hint?: string;
   guidance?: string; // Legacy format
@@ -85,6 +87,7 @@ export interface ChecklistTemplate {
   type: ChecklistType;
   version: number;
   status: TemplateStatus;
+  frequency?: ChecklistFrequency; // How often this checklist should be completed
   machine_id?: string | null;
   json_definition?: ChecklistDefinition | null;
   created_by?: string | null;
@@ -102,6 +105,7 @@ export interface ChecklistTemplateInsert {
 
 // Checklist Run types
 export type ChecklistRunStatus = "in_progress" | "completed" | "aborted";
+export type ChecklistComplianceStatus = "on_time" | "due_soon" | "overdue";
 
 export interface ChecklistRun {
   id: string;
@@ -111,6 +115,7 @@ export interface ChecklistRun {
   status: ChecklistRunStatus;
   started_at: string;
   completed_at?: string | null;
+  due_date?: string | null; // When this checklist is due
   job_number?: string | null;
   part_number?: string | null;
   program_name?: string | null;
