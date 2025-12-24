@@ -137,7 +137,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       if (disabled || isLoading) return;
       
       const original = variants[variant];
-      e.currentTarget.style.background = original.background || "transparent";
+      e.currentTarget.style.background = (original.background as string) || "transparent";
       e.currentTarget.style.boxShadow = "none";
       if (variant === "outline") {
         e.currentTarget.style.borderColor = "#e2e8f0";
