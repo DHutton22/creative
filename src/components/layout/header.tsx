@@ -1,10 +1,12 @@
 "use client";
 
-import { Bell, Search, Menu, Eye, X, HelpCircle } from "lucide-react";
+import { Bell, Search, Menu, Eye, X, HelpCircle, LogOut, User, Settings, ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useTour } from "@/contexts/tour-context";
 import { Button, Input } from "@/components/ui";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { BRAND } from "@/lib/branding";
 
 interface HeaderProps {
@@ -82,23 +84,227 @@ export function Header({ title, showSearch = true, onMenuClick }: HeaderProps) {
           )}
         </Button>
 
-        {/* User avatar */}
-        <div className="flex items-center gap-2 md:gap-3 pl-2 md:pl-3 border-l border-border">
-          <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-primary flex items-center justify-center text-white font-medium text-sm">
-            {user?.name?.charAt(0).toUpperCase() || "U"}
-          </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-medium text-foreground">
-              {user?.name || "User"}
-            </p>
-            <p className="text-xs text-foreground-muted capitalize">
-              {user?.role || "operator"}
-            </p>
-          </div>
-        </div>
+        {/* User menu */}
+        <UserMenu user={user} />
       </div>
     </header>
     </>
+  );
+}
+
+// User menu with dropdown
+function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  return (
+    <div style={{ position: "relative" }} className="pl-2 md:pl-3 border-l border-border">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          padding: "6px 8px",
+          background: isOpen ? "#f3f4f6" : "transparent",
+          border: "none",
+          borderRadius: "10px",
+          cursor: "pointer",
+          transition: "background 0.15s",
+        }}
+        onMouseEnter={(e) => { if (!isOpen) e.currentTarget.style.background = "#f9fafb"; }}
+        onMouseLeave={(e) => { if (!isOpen) e.currentTarget.style.background = "transparent"; }}
+      >
+        <div 
+          style={{
+            width: "36px",
+            height: "36px",
+            borderRadius: "50%",
+            background: `linear-gradient(135deg, ${BRAND.PRIMARY_BLUE} 0%, ${BRAND.PRIMARY_BLUE_DARK} 100%)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontWeight: "600",
+            fontSize: "14px",
+          }}
+        >
+          {user?.name?.charAt(0).toUpperCase() || "U"}
+        </div>
+        <div className="hidden sm:block" style={{ textAlign: "left" }}>
+          <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>
+            {user?.name || "User"}
+          </p>
+          <p style={{ margin: 0, fontSize: "12px", color: "#64748b", textTransform: "capitalize" }}>
+            {user?.role || "operator"}
+          </p>
+        </div>
+        <ChevronDown 
+          className="hidden sm:block"
+          style={{ 
+            width: "16px", 
+            height: "16px", 
+            color: "#94a3b8",
+            transform: isOpen ? "rotate(180deg)" : "rotate(0)",
+            transition: "transform 0.2s",
+          }} 
+        />
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, zIndex: 40 }}
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            style={{
+              position: "absolute",
+              top: "calc(100% + 8px)",
+              right: 0,
+              width: "220px",
+              background: "white",
+              borderRadius: "12px",
+              boxShadow: "0 10px 40px rgba(0, 0, 0, 0.12)",
+              border: "1px solid #e2e8f0",
+              zIndex: 50,
+              overflow: "hidden",
+              animation: "fadeInUp 0.2s ease-out",
+            }}
+          >
+            {/* User info header */}
+            <div style={{ padding: "16px", borderBottom: "1px solid #e2e8f0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div 
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    borderRadius: "12px",
+                    background: `linear-gradient(135deg, ${BRAND.PRIMARY_BLUE} 0%, ${BRAND.PRIMARY_BLUE_DARK} 100%)`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    fontWeight: "700",
+                    fontSize: "16px",
+                    boxShadow: "0 2px 8px rgba(0, 87, 168, 0.25)",
+                  }}
+                >
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: "15px", fontWeight: "600", color: "#1e293b" }}>
+                    {user?.name || "User"}
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#64748b", textTransform: "capitalize" }}>
+                    {user?.role || "operator"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Menu items */}
+            <div style={{ padding: "8px" }}>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  // Could navigate to profile page
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#374151",
+                  transition: "background 0.15s",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                <User style={{ width: "18px", height: "18px", color: "#64748b" }} />
+                My Profile
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  // Could navigate to settings
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#374151",
+                  transition: "background 0.15s",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "#f3f4f6"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                <Settings style={{ width: "18px", height: "18px", color: "#64748b" }} />
+                Settings
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: "1px solid #e2e8f0", margin: "0 8px" }} />
+
+            {/* Sign out */}
+            <div style={{ padding: "8px" }}>
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  handleSignOut();
+                }}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 12px",
+                  background: "transparent",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#dc2626",
+                  transition: "background 0.15s",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = "#fef2f2"}
+                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+              >
+                <LogOut style={{ width: "18px", height: "18px" }} />
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 
