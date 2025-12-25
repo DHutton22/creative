@@ -10,7 +10,7 @@ import { BRAND } from "@/lib/branding";
 
 const navItems = [
   { href: "/work-centres", label: "Work Centres", icon: "grid" },
-  { href: "/checklists", label: "Checklists", icon: "clipboard" },
+  { href: "/checklists", label: "My Checklists", icon: "history" },
 ];
 
 const adminItems = [
@@ -41,6 +41,11 @@ const icons: Record<string, React.ReactNode> = {
   clipboard: (
     <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+    </svg>
+  ),
+  history: (
+    <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
   wrench: (
