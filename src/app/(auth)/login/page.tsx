@@ -198,7 +198,7 @@ function LoginContent() {
             transform: mounted ? 'translateY(0)' : 'translateY(20px)',
             transition: 'opacity 0.6s ease-out 0.1s, transform 0.6s ease-out 0.1s',
           }}>
-            Accountability &<br />Traceability for<br />Manufacturing Excellence
+            Machine Checklist<br />System
           </h2>
           <p style={{ 
             color: 'rgba(255,255,255,0.7)', 
@@ -210,7 +210,7 @@ function LoginContent() {
             transform: mounted ? 'translateY(0)' : 'translateY(20px)',
             transition: 'opacity 0.6s ease-out 0.2s, transform 0.6s ease-out 0.2s',
           }}>
-            Streamline your CNC machine checks, maintenance scheduling, and quality control with our comprehensive checklist system.
+            Log in to access your daily machine checklists, record maintenance tasks, and keep our CNC operations running smoothly.
           </p>
           
           <div style={{ 
@@ -220,9 +220,9 @@ function LoginContent() {
             paddingTop: '32px',
             borderTop: '1px solid rgba(255, 255, 255, 0.15)',
           }}>
-            <AnimatedStat value="100%" label="Traceability" delay={400} />
-            <AnimatedStat value="5-Axis" label="CNC Support" delay={500} />
-            <AnimatedStat value="AS9100" label="Compliant" delay={600} />
+            <AnimatedStat value="Full" label="Traceability" delay={400} />
+            <AnimatedStat value="5-Axis" label="CNC Machines" delay={500} />
+            <AnimatedStat value="AS9100" label="Standards" delay={600} />
           </div>
         </div>
         
