@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
-import { X, Clock, CheckCircle2, AlertTriangle, User, Calendar, Send, SkipForward, History, ExternalLink } from "lucide-react";
+import { X, Clock, CheckCircle2, AlertTriangle, User, Calendar, Send, SkipForward, History, ExternalLink, Settings2 } from "lucide-react";
 
 interface ChecklistDetails {
   id: string;
@@ -51,10 +51,22 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
   const [skipReason, setSkipReason] = useState("");
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [showSkipForm, setShowSkipForm] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [selectedFrequency, setSelectedFrequency] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [recentHistory, setRecentHistory] = useState<any[]>([]);
   const [reminderSent, setReminderSent] = useState(false);
+  const [scheduleUpdated, setScheduleUpdated] = useState(false);
   const supabase = createClient();
+
+  const frequencyOptions = [
+    { value: "none", label: "No Schedule (Ad-hoc)", description: "Run when needed, no deadlines" },
+    { value: "daily", label: "Daily", description: "Due every day" },
+    { value: "weekly", label: "Weekly", description: "Due once per week" },
+    { value: "fortnightly", label: "Fortnightly", description: "Due every two weeks" },
+    { value: "monthly", label: "Monthly", description: "Due once per month" },
+    { value: "quarterly", label: "Quarterly", description: "Due every 3 months" },
+  ];
 
   // Fetch operators and history when panel opens
   useEffect(() => {
@@ -199,6 +211,100 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
 
     // Reset after 3 seconds
     setTimeout(() => setReminderSent(false), 3000);
+  };
+
+  const handleChangeSchedule = async () => {
+    if (!checklist || !selectedFrequency) return;
+    setIsLoading(true);
+
+    try {
+      const newFrequency = selectedFrequency === "none" ? null : selectedFrequency;
+      
+      // Update the checklist template's frequency
+      const { error: updateError } = await supabase
+        .from("checklist_templates")
+        .update({ frequency: newFrequency })
+        .eq("id", checklist.template_id);
+
+      if (updateError) {
+        console.error("Error updating frequency:", updateError);
+        return;
+      }
+
+      // If changing to "no schedule", update any in-progress runs to remove due_date
+      if (newFrequency === null) {
+        await supabase
+          .from("checklist_runs")
+          .update({ due_date: null })
+          .eq("template_id", checklist.template_id)
+          .eq("status", "in_progress");
+      } else {
+        // Calculate new due date based on frequency
+        const now = new Date();
+        let nextDue = new Date();
+        
+        switch (newFrequency) {
+          case "daily":
+            nextDue.setDate(now.getDate() + 1);
+            break;
+          case "weekly":
+            nextDue.setDate(now.getDate() + 7);
+            break;
+          case "fortnightly":
+            nextDue.setDate(now.getDate() + 14);
+            break;
+          case "monthly":
+            nextDue.setMonth(now.getMonth() + 1);
+            break;
+          case "quarterly":
+            nextDue.setMonth(now.getMonth() + 3);
+            break;
+        }
+
+        // Update in-progress runs with new due date
+        await supabase
+          .from("checklist_runs")
+          .update({ due_date: nextDue.toISOString() })
+          .eq("template_id", checklist.template_id)
+          .eq("status", "in_progress");
+      }
+
+      // Log activity
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        try {
+          await supabase.from("activity_log").insert({
+            user_id: userData.user.id,
+            action_type: "schedule_changed",
+            entity_type: "checklist_template",
+            entity_id: checklist.template_id,
+            machine_id: checklist.machine_id,
+            metadata: { 
+              old_frequency: checklist.frequency || "none",
+              new_frequency: newFrequency || "none",
+              checklist_name: checklist.name,
+            },
+          });
+        } catch (e) {
+          // Activity log might not exist yet
+        }
+      }
+
+      setScheduleUpdated(true);
+      setShowScheduleForm(false);
+      setSelectedFrequency("");
+      
+      // Show success briefly then trigger refresh
+      setTimeout(() => {
+        setScheduleUpdated(false);
+        onAction?.();
+        onClose();
+      }, 1500);
+    } catch (err) {
+      console.error("Error changing schedule:", err);
+    }
+
+    setIsLoading(false);
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -398,23 +504,69 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
               </div>
             </div>
 
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              padding: "14px 16px",
-              background: "#f8fafc",
-              borderRadius: "10px",
-            }}>
+            <button
+              onClick={() => {
+                setSelectedFrequency(checklist.frequency || "none");
+                setShowScheduleForm(true);
+                setShowAssignForm(false);
+                setShowSkipForm(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "14px 16px",
+                background: "#f8fafc",
+                borderRadius: "10px",
+                border: "2px solid transparent",
+                width: "100%",
+                textAlign: "left",
+                cursor: "pointer",
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = BRAND_BLUE;
+                e.currentTarget.style.background = "#eff6ff";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "transparent";
+                e.currentTarget.style.background = "#f8fafc";
+              }}
+            >
               <Clock style={{ width: "20px", height: "20px", color: "#64748b" }} />
-              <div>
+              <div style={{ flex: 1 }}>
                 <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>Frequency</p>
                 <p style={{ fontSize: "14px", fontWeight: "600", color: "#111827", margin: "2px 0 0 0", textTransform: "capitalize" }}>
                   {checklist.frequency || "Ad-hoc (No schedule)"}
                 </p>
               </div>
-            </div>
+              <Settings2 style={{ width: "16px", height: "16px", color: BRAND_BLUE }} />
+            </button>
           </div>
+
+          {/* Schedule Updated Success */}
+          {scheduleUpdated && (
+            <div style={{
+              padding: "16px",
+              background: "#dcfce7",
+              borderRadius: "12px",
+              border: "2px solid #22c55e",
+              marginBottom: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+            }}>
+              <CheckCircle2 style={{ width: "24px", height: "24px", color: "#166534" }} />
+              <div>
+                <p style={{ fontSize: "14px", fontWeight: "600", color: "#166534", margin: 0 }}>
+                  Schedule Updated!
+                </p>
+                <p style={{ fontSize: "13px", color: "#15803d", margin: "2px 0 0 0" }}>
+                  The dashboard will refresh with the new status...
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Actions */}
           <div style={{ marginBottom: "24px" }}>
@@ -422,7 +574,7 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
               Actions
             </h3>
             
-            {!showAssignForm && !showSkipForm && (
+            {!showAssignForm && !showSkipForm && !showScheduleForm && (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                 <button
                   onClick={() => setShowAssignForm(true)}
@@ -443,6 +595,30 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                 >
                   <User style={{ width: "18px", height: "18px" }} />
                   Assign
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setSelectedFrequency(checklist.frequency || "none");
+                    setShowScheduleForm(true);
+                  }}
+                  style={{
+                    padding: "14px 16px",
+                    background: "white",
+                    color: BRAND_BLUE,
+                    border: `2px solid ${BRAND_BLUE}`,
+                    borderRadius: "10px",
+                    fontWeight: "600",
+                    fontSize: "14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <Settings2 style={{ width: "18px", height: "18px" }} />
+                  Change Schedule
                 </button>
                 
                 <button
@@ -467,30 +643,6 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                   <SkipForward style={{ width: "18px", height: "18px" }} />
                   Skip Cycle
                 </button>
-                
-                <a
-                  href={`/checklists/${checklist.current_run_id || checklist.template_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: "14px 16px",
-                    background: "white",
-                    color: "#64748b",
-                    border: "2px solid #e2e8f0",
-                    borderRadius: "10px",
-                    fontWeight: "600",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    textDecoration: "none",
-                  }}
-                >
-                  <ExternalLink style={{ width: "18px", height: "18px" }} />
-                  View Checklist
-                </a>
                 
                 <button
                   onClick={handleSendReminder}
@@ -522,6 +674,31 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                     </>
                   )}
                 </button>
+                
+                <a
+                  href={`/checklists/${checklist.current_run_id || checklist.template_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: "14px 16px",
+                    background: "white",
+                    color: "#64748b",
+                    border: "2px solid #e2e8f0",
+                    borderRadius: "10px",
+                    fontWeight: "600",
+                    fontSize: "14px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "8px",
+                    textDecoration: "none",
+                    gridColumn: "span 2",
+                  }}
+                >
+                  <ExternalLink style={{ width: "18px", height: "18px" }} />
+                  View Checklist
+                </a>
               </div>
             )}
 
@@ -652,6 +829,117 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                     }}
                   >
                     {isLoading ? "Skipping..." : "Skip Cycle"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Change Schedule Form */}
+            {showScheduleForm && (
+              <div style={{
+                padding: "16px",
+                background: "#eff6ff",
+                borderRadius: "12px",
+                border: `2px solid ${BRAND_BLUE}`,
+              }}>
+                <h4 style={{ fontSize: "14px", fontWeight: "600", color: BRAND_BLUE, margin: "0 0 4px 0" }}>
+                  Change Schedule
+                </h4>
+                <p style={{ fontSize: "13px", color: "#64748b", margin: "0 0 16px 0" }}>
+                  This will update the template and recalculate due dates
+                </p>
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+                  {frequencyOptions.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSelectedFrequency(opt.value)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "12px 14px",
+                        background: selectedFrequency === opt.value ? BRAND_BLUE : "white",
+                        color: selectedFrequency === opt.value ? "white" : "#374151",
+                        border: selectedFrequency === opt.value ? "none" : "2px solid #e2e8f0",
+                        borderRadius: "10px",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      <div style={{
+                        width: "20px",
+                        height: "20px",
+                        borderRadius: "50%",
+                        border: selectedFrequency === opt.value ? "none" : "2px solid #d1d5db",
+                        background: selectedFrequency === opt.value ? "white" : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}>
+                        {selectedFrequency === opt.value && (
+                          <div style={{
+                            width: "10px",
+                            height: "10px",
+                            borderRadius: "50%",
+                            background: BRAND_BLUE,
+                          }} />
+                        )}
+                      </div>
+                      <div>
+                        <p style={{ fontSize: "14px", fontWeight: "600", margin: 0 }}>
+                          {opt.label}
+                        </p>
+                        <p style={{ 
+                          fontSize: "12px", 
+                          margin: "2px 0 0 0",
+                          color: selectedFrequency === opt.value ? "rgba(255,255,255,0.8)" : "#6b7280",
+                        }}>
+                          {opt.description}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    onClick={() => {
+                      setShowScheduleForm(false);
+                      setSelectedFrequency("");
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      background: "white",
+                      border: `2px solid ${BRAND_BLUE}`,
+                      borderRadius: "8px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                      color: BRAND_BLUE,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleChangeSchedule}
+                    disabled={!selectedFrequency || selectedFrequency === (checklist.frequency || "none") || isLoading}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      background: selectedFrequency && selectedFrequency !== (checklist.frequency || "none") ? BRAND_BLUE : "#94a3b8",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "8px",
+                      fontWeight: "600",
+                      fontSize: "14px",
+                      cursor: selectedFrequency && selectedFrequency !== (checklist.frequency || "none") ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {isLoading ? "Updating..." : "Update Schedule"}
                   </button>
                 </div>
               </div>
