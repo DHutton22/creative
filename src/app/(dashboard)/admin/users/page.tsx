@@ -231,11 +231,13 @@ export default function AdminUsersPage() {
     setSelectedUser(user);
     setFormData({
       email: user.email,
+      username: user.username || "",
       password: "",
       name: user.name,
       role: user.role,
       department: user.department || "",
       sendEmail: false,
+      isInternalUser: user.email?.endsWith('@cc.internal') || false,
     });
     setShowEditModal(true);
   };
@@ -287,11 +289,13 @@ export default function AdminUsersPage() {
           onClick={() => {
             setFormData({
               email: "",
+              username: "",
               password: "",
               name: "",
               role: "operator",
               department: "",
               sendEmail: false,
+              isInternalUser: true,
             });
             setShowCreateModal(true);
           }}
