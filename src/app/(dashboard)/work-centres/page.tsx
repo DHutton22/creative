@@ -141,7 +141,7 @@ export default function WorkCentresPage() {
       {/* Loading State */}
       {isLoading ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div 
               key={i} 
               style={{ 
@@ -150,6 +150,7 @@ export default function WorkCentresPage() {
                 border: '2px solid #e2e8f0',
                 padding: '32px 24px',
                 textAlign: 'center',
+                animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${i * 50}ms backwards`,
               }}
             >
               <div style={{ 
@@ -165,6 +166,15 @@ export default function WorkCentresPage() {
                 height: '20px', 
                 borderRadius: '6px', 
                 width: '70%', 
+                margin: '0 auto 8px',
+                background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }} />
+              <div style={{ 
+                height: '14px', 
+                borderRadius: '6px', 
+                width: '50%', 
                 margin: '0 auto',
                 background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
                 backgroundSize: '200% 100%',
@@ -203,6 +213,52 @@ export default function WorkCentresPage() {
       ) : !selectedWorkCentre ? (
         /* Work Centre Selection */
         <>
+          {workCentres.length === 0 ? (
+            <div style={{ 
+              background: 'white', 
+              borderRadius: '16px', 
+              padding: '48px', 
+              textAlign: 'center', 
+              border: '2px dashed #e2e8f0',
+              animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🏭</div>
+              <h3 style={{ 
+                fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+                fontSize: '18px', 
+                fontWeight: '600', 
+                color: '#374151', 
+                marginBottom: '8px' 
+              }}>
+                No work centres set up yet
+              </h3>
+              <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '20px' }}>
+                Work centres need to be created by an administrator
+              </p>
+              {canManage && (
+                <Link
+                  href="/admin/work-centres"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '12px 24px',
+                    background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+                    color: 'white',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Create Work Centre
+                </Link>
+              )}
+            </div>
+          ) : (
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
@@ -275,9 +331,10 @@ export default function WorkCentresPage() {
               );
             })}
           </div>
+          )}
 
           {/* Admin Link */}
-          {canManage && (
+          {canManage && workCentres.length > 0 && (
             <div style={{ 
               marginTop: '32px', 
               textAlign: 'center',
