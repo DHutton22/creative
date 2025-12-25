@@ -4,7 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
-import { ImageUpload } from "@/components/ui/image-upload";
+import { CameraCapture } from "@/components/ui/camera-capture";
 import Link from "next/link";
 
 interface ChecklistRun {
@@ -887,45 +887,76 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
         </div>
       )}
 
-      {/* Photo Upload Modal */}
+      {/* Photo Capture Modal */}
       {uploadingItemId && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(0,0,0,0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 50,
-          padding: '20px',
+          padding: '16px',
         }}>
-          <div style={{ ...cardStyle, width: '100%', maxWidth: '500px', padding: '24px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>Upload Photo</h3>
-            <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
-              Take a photo or upload an image showing the current state
-            </p>
-            <ImageUpload
-              onUpload={(url) => handlePhotoUpload(uploadingItemId, url)}
-              currentImageUrl={answers.get(uploadingItemId)?.photo_url}
-              bucket="checklist-images"
-              path={`runs/${run?.id}`}
-            />
-            <div style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+          <div style={{ 
+            width: '100%', 
+            maxWidth: '500px', 
+            background: 'white',
+            borderRadius: '20px',
+            overflow: 'hidden',
+          }}>
+            {/* Modal Header */}
+            <div style={{ 
+              padding: '16px 20px', 
+              borderBottom: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  📷 Capture Photo
+                </h3>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                  Take a photo showing the current state
+                </p>
+              </div>
               <button
                 onClick={() => { setUploadingItemId(null); setUploadingSectionId(null); }}
                 style={{
-                  flex: 1,
-                  padding: '12px',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '8px',
-                  background: 'white',
-                  color: '#374151',
-                  fontWeight: '500',
+                  width: '36px',
+                  height: '36px',
+                  border: 'none',
+                  background: '#f1f5f9',
+                  borderRadius: '50%',
+                  color: '#64748b',
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                Close
+                <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
+            </div>
+            
+            {/* Camera Component */}
+            <div style={{ padding: '20px' }}>
+              <CameraCapture
+                onCapture={(url) => {
+                  handlePhotoUpload(uploadingItemId, url);
+                  if (url) {
+                    setUploadingItemId(null);
+                    setUploadingSectionId(null);
+                  }
+                }}
+                currentImageUrl={answers.get(uploadingItemId)?.photo_url}
+                bucket="checklist-images"
+                path={`runs/${run?.id}`}
+              />
             </div>
           </div>
         </div>

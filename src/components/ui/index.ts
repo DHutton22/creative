@@ -9,5 +9,6 @@ export * from "./select";
 export * from "./checkbox";
 export * from "./badge";
 export * from "./image-upload";
+export * from "./camera-capture";
 export * from "./skeleton";
 export * from "./empty-state";
