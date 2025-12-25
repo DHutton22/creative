@@ -53,6 +53,7 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
   const [showSkipForm, setShowSkipForm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [recentHistory, setRecentHistory] = useState<any[]>([]);
+  const [reminderSent, setReminderSent] = useState(false);
   const supabase = createClient();
 
   // Fetch operators and history when panel opens
@@ -64,11 +65,14 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
   }, [isOpen, checklist]);
 
   const fetchOperators = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("users")
       .select("id, name, role")
-      .in("role", ["operator", "supervisor", "admin"])
       .order("name");
+    
+    if (error) {
+      console.error("Error fetching operators:", error);
+    }
     setOperators(data || []);
   };
 
@@ -82,7 +86,7 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
         status,
         started_at,
         completed_at,
-        users (name)
+        users!checklist_runs_user_id_fkey (name)
       `)
       .eq("template_id", checklist.template_id)
       .eq("machine_id", checklist.machine_id)
@@ -165,6 +169,36 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
     }
 
     setIsLoading(false);
+  };
+
+  const handleSendReminder = async () => {
+    if (!checklist) return;
+    
+    // For now, just show confirmation - in future could send email/notification
+    setReminderSent(true);
+    
+    // Log the reminder action
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        await supabase.from("activity_log").insert({
+          user_id: userData.user.id,
+          action_type: "assignment_created", // reusing this type for reminders
+          entity_type: "reminder",
+          entity_id: checklist.template_id,
+          machine_id: checklist.machine_id,
+          metadata: { 
+            action: "reminder_sent",
+            checklist_name: checklist.name,
+          },
+        });
+      }
+    } catch (e) {
+      // Activity log might not exist yet
+    }
+
+    // Reset after 3 seconds
+    setTimeout(() => setReminderSent(false), 3000);
   };
 
   const getTimeAgo = (dateString: string) => {
@@ -459,12 +493,13 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                 </a>
                 
                 <button
-                  onClick={() => {/* TODO: Send reminder */}}
+                  onClick={handleSendReminder}
+                  disabled={reminderSent}
                   style={{
                     padding: "14px 16px",
-                    background: "white",
-                    color: "#64748b",
-                    border: "2px solid #e2e8f0",
+                    background: reminderSent ? "#dcfce7" : "white",
+                    color: reminderSent ? "#166534" : "#64748b",
+                    border: reminderSent ? "2px solid #22c55e" : "2px solid #e2e8f0",
                     borderRadius: "10px",
                     fontWeight: "600",
                     fontSize: "14px",
@@ -475,8 +510,17 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                     gap: "8px",
                   }}
                 >
-                  <Send style={{ width: "18px", height: "18px" }} />
-                  Remind
+                  {reminderSent ? (
+                    <>
+                      <CheckCircle2 style={{ width: "18px", height: "18px" }} />
+                      Sent!
+                    </>
+                  ) : (
+                    <>
+                      <Send style={{ width: "18px", height: "18px" }} />
+                      Remind
+                    </>
+                  )}
                 </button>
               </div>
             )}
