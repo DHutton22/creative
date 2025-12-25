@@ -14,10 +14,9 @@ interface ChecklistStatus {
   due_date: string | null;
   started_at: string;
   completed_at: string | null;
-  compliance_status: "on_time" | "due_soon" | "overdue" | "completed" | "active" | "aging" | "stale";
+  compliance_status: "on_time" | "due_soon" | "overdue" | "completed" | "in_progress";
   days_overdue: number;
-  hours_open: number;
-  is_ad_hoc: boolean;
+  is_scheduled: boolean;
 }
 
 interface TrafficLightDashboardProps {
@@ -27,7 +26,7 @@ interface TrafficLightDashboardProps {
 const BRAND_BLUE = "#0057A8";
 
 const frequencyLabels: Record<ChecklistFrequency, string> = {
-  once: "Ad-hoc",
+  once: "No Schedule",
   daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
@@ -38,7 +37,7 @@ const frequencyLabels: Record<ChecklistFrequency, string> = {
 export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDashboardProps) {
   const [checklists, setChecklists] = useState<ChecklistStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "scheduled" | "ad_hoc" | "needs_attention">("all");
+  const [filter, setFilter] = useState<"all" | "scheduled" | "no_schedule">("all");
 
   useEffect(() => {
     fetchChecklists();
@@ -59,59 +58,43 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
   };
 
   const getStatusDisplay = (checklist: ChecklistStatus) => {
-    if (checklist.is_ad_hoc) {
-      // Ad-hoc checklists - show based on how long they've been open
-      switch (checklist.compliance_status) {
-        case "active":
-          return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
-        case "aging":
-          return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡", label: "Open 4+ hrs" };
-        case "stale":
-          return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴", label: "Open 8+ hrs" };
-        default:
-          return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
-      }
-    } else {
-      // Scheduled checklists - show based on due date
-      switch (checklist.compliance_status) {
-        case "on_time":
-        case "completed":
-          return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "🟢", label: "On Time" };
-        case "due_soon":
-          return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡", label: "Due Soon" };
-        case "overdue":
-          return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴", label: "Overdue" };
-        default:
-          return { bg: "#f3f4f6", border: "#9ca3af", text: "#374151", light: "⚪", label: "Unknown" };
-      }
+    if (!checklist.is_scheduled) {
+      // No schedule - just show as in progress (neutral blue)
+      return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
+    }
+    
+    // Scheduled checklists get traffic light treatment
+    switch (checklist.compliance_status) {
+      case "on_time":
+        return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "🟢", label: "On Time" };
+      case "due_soon":
+        return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡", label: "Due Soon" };
+      case "overdue":
+        return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴", label: "Overdue" };
+      case "completed":
+        return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "✅", label: "Completed" };
+      default:
+        return { bg: "#f3f4f6", border: "#9ca3af", text: "#374151", light: "⚪", label: "Unknown" };
     }
   };
 
   const getStatusText = (checklist: ChecklistStatus) => {
-    if (checklist.is_ad_hoc) {
-      if (checklist.hours_open < 1) {
-        return "Just started";
-      } else if (checklist.hours_open < 4) {
-        return `Open ${checklist.hours_open}h`;
-      } else if (checklist.hours_open < 8) {
-        return `Open ${checklist.hours_open}h - needs completion`;
-      } else {
-        return `Open ${checklist.hours_open}h - please review`;
-      }
+    if (!checklist.is_scheduled) {
+      return "No schedule";
+    }
+    
+    if (!checklist.due_date) return "No due date";
+    
+    const now = new Date();
+    const dueDate = new Date(checklist.due_date);
+    const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diff > 0) {
+      return `Due in ${diff} day${diff !== 1 ? "s" : ""}`;
+    } else if (diff === 0) {
+      return "Due today";
     } else {
-      if (!checklist.due_date) return "No due date";
-      
-      const now = new Date();
-      const dueDate = new Date(checklist.due_date);
-      const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (diff > 0) {
-        return `Due in ${diff} day${diff !== 1 ? "s" : ""}`;
-      } else if (diff === 0) {
-        return "Due today";
-      } else {
-        return `${Math.abs(diff)} day${diff !== -1 ? "s" : ""} overdue`;
-      }
+      return `${Math.abs(diff)} day${diff !== -1 ? "s" : ""} overdue`;
     }
   };
 
@@ -120,36 +103,27 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
   
   const filteredChecklists = inProgressChecklists.filter((c) => {
     if (filter === "all") return true;
-    if (filter === "scheduled") return !c.is_ad_hoc;
-    if (filter === "ad_hoc") return c.is_ad_hoc;
-    if (filter === "needs_attention") {
-      return c.compliance_status === "overdue" || 
-             c.compliance_status === "due_soon" || 
-             c.compliance_status === "aging" || 
-             c.compliance_status === "stale";
-    }
+    if (filter === "scheduled") return c.is_scheduled;
+    if (filter === "no_schedule") return !c.is_scheduled;
     return true;
   });
 
   // Stats
+  const scheduledChecklists = inProgressChecklists.filter(c => c.is_scheduled);
+  const noScheduleChecklists = inProgressChecklists.filter(c => !c.is_scheduled);
+  
   const stats = {
-    // Scheduled stats
-    onTime: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "on_time").length,
-    dueSoon: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "due_soon").length,
-    overdue: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "overdue").length,
-    // Ad-hoc stats
-    adHocActive: inProgressChecklists.filter(c => c.is_ad_hoc && c.compliance_status === "active").length,
-    adHocAging: inProgressChecklists.filter(c => c.is_ad_hoc && (c.compliance_status === "aging" || c.compliance_status === "stale")).length,
+    // Scheduled traffic lights
+    onTime: scheduledChecklists.filter(c => c.compliance_status === "on_time").length,
+    dueSoon: scheduledChecklists.filter(c => c.compliance_status === "due_soon").length,
+    overdue: scheduledChecklists.filter(c => c.compliance_status === "overdue").length,
+    // No schedule
+    noSchedule: noScheduleChecklists.length,
   };
-
-  const totalScheduled = stats.onTime + stats.dueSoon + stats.overdue;
-  const totalAdHoc = stats.adHocActive + stats.adHocAging;
-  const needsAttention = stats.dueSoon + stats.overdue + stats.adHocAging;
 
   if (isLoading) {
     return (
       <div>
-        {/* Stats Skeleton */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "24px" }}>
           {[1, 2, 3, 4].map((i) => (
             <div key={i} style={{ background: "white", borderRadius: "16px", padding: "24px", border: "2px solid #e2e8f0" }}>
@@ -157,8 +131,7 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                 <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
                 <div style={{ width: "48px", height: "40px", borderRadius: "8px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
               </div>
-              <div style={{ width: "60%", height: "14px", borderRadius: "4px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite", marginBottom: "8px" }} />
-              <div style={{ width: "40%", height: "12px", borderRadius: "4px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+              <div style={{ width: "60%", height: "14px", borderRadius: "4px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
             </div>
           ))}
         </div>
@@ -168,44 +141,9 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
 
   return (
     <div>
-      {/* Summary Stats */}
+      {/* Traffic Light Stats - Only for SCHEDULED checklists */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "24px" }}>
-        {/* Needs Attention - Priority */}
-        <div
-          onClick={() => setFilter(filter === "needs_attention" ? "all" : "needs_attention")}
-          style={{
-            background: filter === "needs_attention" ? "linear-gradient(135deg, #fef2f220 0%, #fee2e240 100%)" : "white",
-            borderRadius: "16px",
-            padding: "24px",
-            border: `2px solid ${needsAttention > 0 ? "#ef4444" : "#22c55e"}`,
-            cursor: "pointer",
-            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
-            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0ms backwards",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-3px)";
-            e.currentTarget.style.boxShadow = needsAttention > 0 ? "0 8px 24px rgba(239, 68, 68, 0.2)" : "0 8px 24px rgba(34, 197, 94, 0.2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <span style={{ fontSize: "32px" }}>{needsAttention > 0 ? "⚠️" : "✅"}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: needsAttention > 0 ? "#ef4444" : "#22c55e" }}>
-              {needsAttention}
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: needsAttention > 0 ? "#991b1b" : "#166534" }}>
-            {needsAttention > 0 ? "Needs Attention" : "All Clear"}
-          </p>
-          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
-            {needsAttention > 0 ? "Overdue or aging" : "No issues"}
-          </p>
-        </div>
-
-        {/* Scheduled Checklists */}
+        {/* On Time */}
         <div
           onClick={() => setFilter(filter === "scheduled" ? "all" : "scheduled")}
           style={{
@@ -215,91 +153,82 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
             border: "2px solid #22c55e",
             cursor: "pointer",
             transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
-            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 50ms backwards",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0ms backwards",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-3px)";
-            e.currentTarget.style.boxShadow = "0 8px 24px rgba(34, 197, 94, 0.2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(34, 197, 94, 0.2)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <span style={{ fontSize: "32px" }}>📅</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#22c55e" }}>
-              {totalScheduled}
-            </span>
+            <span style={{ fontSize: "32px" }}>🟢</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#22c55e" }}>{stats.onTime}</span>
           </div>
-          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#166534" }}>Scheduled</p>
-          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
-            {stats.overdue > 0 ? `${stats.overdue} overdue` : stats.dueSoon > 0 ? `${stats.dueSoon} due soon` : "On track"}
-          </p>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#166534" }}>On Time</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Scheduled & on track</p>
         </div>
 
-        {/* Ad-hoc Checklists */}
+        {/* Due Soon */}
         <div
-          onClick={() => setFilter(filter === "ad_hoc" ? "all" : "ad_hoc")}
           style={{
-            background: filter === "ad_hoc" ? "linear-gradient(135deg, #dbeafe20 0%, #3b82f620 100%)" : "white",
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "2px solid #f59e0b",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 50ms backwards",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(245, 158, 11, 0.2)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>🟡</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#f59e0b" }}>{stats.dueSoon}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#92400e" }}>Due Soon</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Within {dueSoonThreshold} days</p>
+        </div>
+
+        {/* Overdue */}
+        <div
+          style={{
+            background: "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "2px solid #ef4444",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(239, 68, 68, 0.2)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>🔴</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#ef4444" }}>{stats.overdue}</span>
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#991b1b" }}>Overdue</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Past due date</p>
+        </div>
+
+        {/* No Schedule (Ad-hoc) */}
+        <div
+          onClick={() => setFilter(filter === "no_schedule" ? "all" : "no_schedule")}
+          style={{
+            background: filter === "no_schedule" ? "linear-gradient(135deg, #dbeafe20 0%, #3b82f620 100%)" : "white",
             borderRadius: "16px",
             padding: "24px",
             border: "2px solid #3b82f6",
             cursor: "pointer",
             transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
-            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards",
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-3px)";
-            e.currentTarget.style.boxShadow = "0 8px 24px rgba(59, 130, 246, 0.2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-3px)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(59, 130, 246, 0.2)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "none"; }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <span style={{ fontSize: "32px" }}>🔵</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#3b82f6" }}>
-              {totalAdHoc}
-            </span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#3b82f6" }}>{stats.noSchedule}</span>
           </div>
-          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#1e40af" }}>Ad-hoc</p>
-          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
-            {stats.adHocAging > 0 ? `${stats.adHocAging} need completion` : "In progress"}
-          </p>
-        </div>
-
-        {/* Total In Progress */}
-        <div
-          onClick={() => setFilter("all")}
-          style={{
-            background: filter === "all" ? "linear-gradient(135deg, #f3f4f620 0%, #e5e7eb40 100%)" : "white",
-            borderRadius: "16px",
-            padding: "24px",
-            border: "2px solid #9ca3af",
-            cursor: "pointer",
-            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
-            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-3px)";
-            e.currentTarget.style.boxShadow = "0 8px 24px rgba(156, 163, 175, 0.2)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "none";
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-            <span style={{ fontSize: "32px" }}>📋</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#374151" }}>
-              {inProgressChecklists.length}
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#374151" }}>Total Open</p>
-          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>All in progress</p>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#1e40af" }}>No Schedule</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Ad-hoc checklists</p>
         </div>
       </div>
 
@@ -307,7 +236,7 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
       {filter !== "all" && (
         <div style={{ marginBottom: "16px", padding: "14px 18px", background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", animation: "fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
           <span style={{ fontSize: "14px", color: "#1e40af", fontWeight: 500 }}>
-            Showing <strong>{filter === "scheduled" ? "scheduled" : filter === "ad_hoc" ? "ad-hoc" : "needs attention"}</strong> checklists
+            Showing <strong>{filter === "scheduled" ? "scheduled" : "no schedule"}</strong> checklists
           </span>
           <button
             onClick={() => setFilter("all")}
@@ -330,12 +259,10 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
               </svg>
             </div>
             <h3 style={{ fontFamily: 'var(--font-display)', fontSize: "18px", fontWeight: "600", color: "#111827", margin: 0, marginBottom: "8px" }}>
-              {filter === "needs_attention" ? "All caught up!" : "No checklists in this category"}
+              No in-progress checklists
             </h3>
             <p style={{ fontSize: "14px", color: "#6b7280", margin: "0 0 24px 0" }}>
-              {filter === "needs_attention" 
-                ? "No overdue or aging checklists right now" 
-                : "Start a new checklist to see it here"}
+              Start a new checklist to see it here
             </p>
             <Link
               href="/checklists/new"
@@ -394,8 +321,8 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                         fontWeight: "600",
                         padding: "2px 8px",
                         borderRadius: "9999px",
-                        background: checklist.is_ad_hoc ? "#dbeafe" : "#dcfce7",
-                        color: checklist.is_ad_hoc ? "#1e40af" : "#166534",
+                        background: checklist.is_scheduled ? "#dcfce7" : "#dbeafe",
+                        color: checklist.is_scheduled ? "#166534" : "#1e40af",
                       }}>
                         {frequencyLabels[checklist.frequency || "once"]}
                       </span>

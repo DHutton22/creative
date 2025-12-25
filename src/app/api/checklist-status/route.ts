@@ -15,7 +15,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Fetch in-progress and recently completed checklists with compliance status
+    // Fetch in-progress and recently completed checklists
     const { data: checklists, error } = await supabase
       .from("checklist_runs")
       .select(
@@ -49,32 +49,15 @@ export async function GET() {
     const now = new Date();
     const checklistsWithStatus = checklists.map((checklist: any) => {
       const frequency = checklist.checklist_templates?.frequency || 'once';
-      const isAdHoc = frequency === 'once' || !checklist.due_date;
+      const isScheduled = frequency !== 'once' && checklist.due_date;
       
-      let compliance_status = "on_time";
+      let compliance_status = "in_progress"; // Default for ad-hoc
       let days_overdue = 0;
-      let hours_open = 0;
 
       if (checklist.status === "completed") {
         compliance_status = "completed";
-      } else if (isAdHoc) {
-        // For ad-hoc checklists, track how long they've been open
-        const startedAt = new Date(checklist.started_at);
-        const diffMs = now.getTime() - startedAt.getTime();
-        hours_open = Math.floor(diffMs / (1000 * 60 * 60));
-        
-        if (hours_open >= 8) {
-          // Open for 8+ hours - something might be wrong
-          compliance_status = "stale";
-        } else if (hours_open >= 4) {
-          // Open for 4+ hours - might need attention
-          compliance_status = "aging";
-        } else {
-          // Recently started - all good
-          compliance_status = "active";
-        }
-      } else if (checklist.due_date) {
-        // For scheduled checklists, use due date
+      } else if (isScheduled && checklist.due_date) {
+        // Only scheduled checklists get traffic light treatment
         const dueDate = new Date(checklist.due_date);
         const diffTime = dueDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -88,6 +71,7 @@ export async function GET() {
           compliance_status = "on_time";
         }
       }
+      // Ad-hoc checklists stay as "in_progress" - no pressure, just recording
 
       return {
         id: checklist.id,
@@ -101,8 +85,7 @@ export async function GET() {
         completed_at: checklist.completed_at,
         compliance_status,
         days_overdue,
-        hours_open,
-        is_ad_hoc: isAdHoc,
+        is_scheduled: isScheduled,
       };
     });
 
@@ -115,4 +98,3 @@ export async function GET() {
     );
   }
 }
-

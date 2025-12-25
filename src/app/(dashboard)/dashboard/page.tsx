@@ -164,11 +164,11 @@ export default function DashboardPage() {
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                   <span style={{ fontSize: "20px" }}>🔵</span>
-                  <strong style={{ color: "#1e40af" }}>Ad-hoc Checklists</strong>
+                  <strong style={{ color: "#1e40af" }}>No Schedule (Ad-hoc)</strong>
                 </div>
                 <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
-                  For operators starting a machine. Tracks how long the checklist has been open. 
-                  Yellow after 4hrs, red after 8hrs.
+                  Operators do these when they start a machine. No due date pressure — 
+                  just a record that the check was done.
                 </p>
               </div>
               <div style={{ 
@@ -178,11 +178,11 @@ export default function DashboardPage() {
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
                   <span style={{ fontSize: "20px" }}>📅</span>
-                  <strong style={{ color: "#166534" }}>Scheduled Checklists</strong>
+                  <strong style={{ color: "#166534" }}>Scheduled Inspections</strong>
                 </div>
                 <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
-                  For regular inspections (daily, weekly, etc). Traffic light shows 🟢 on time, 
-                  🟡 due soon, 🔴 overdue.
+                  Regular inspections (daily, weekly, etc). Traffic light shows compliance: 
+                  🟢 on time, 🟡 due soon, 🔴 overdue.
                 </p>
               </div>
               <div style={{ 
@@ -191,12 +191,12 @@ export default function DashboardPage() {
                 borderRadius: "10px",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                  <span style={{ fontSize: "20px" }}>⚠️</span>
-                  <strong style={{ color: "#991b1b" }}>Needs Attention</strong>
+                  <span style={{ fontSize: "20px" }}>💡</span>
+                  <strong style={{ color: "#374151" }}>Tip</strong>
                 </div>
                 <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
-                  Checklists that are overdue (scheduled) or have been open too long (ad-hoc). 
-                  Review these first!
+                  Click the stat cards above to filter. Set a template's frequency 
+                  to "daily", "weekly", etc. to enable scheduling.
                 </p>
               </div>
             </div>
