@@ -26,13 +26,34 @@ const statusConfig: Record<MachineStatus, { bg: string; color: string; dot: stri
 
 const BRAND_BLUE = '#0057A8';
 
+// Work centre icons based on common manufacturing areas
+const workCentreIcons: Record<string, string> = {
+  rtm: "🔧",
+  injection: "💉",
+  moulding: "🏭",
+  press: "⚙️",
+  assembly: "🔩",
+  finishing: "✨",
+  paint: "🎨",
+  cnc: "🔄",
+  default: "🏗️",
+};
+
+function getWorkCentreIcon(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [key, icon] of Object.entries(workCentreIcons)) {
+    if (lower.includes(key)) return icon;
+  }
+  return workCentreIcons.default;
+}
+
 export default function WorkCentresPage() {
   const [workCentres, setWorkCentres] = useState<WorkCentre[]>([]);
   const [machines, setMachines] = useState<MachineWithWorkCentre[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const { hasRole, isLoading: authLoading } = useAuth();
+  const [selectedWorkCentre, setSelectedWorkCentre] = useState<string | null>(null);
+  const { user, hasRole, isLoading: authLoading } = useAuth();
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -67,399 +88,443 @@ export default function WorkCentresPage() {
     return machines.filter(m => m.work_centre_id === workCentreId);
   };
 
-  const getUnassignedMachines = () => {
-    return machines.filter(m => !m.work_centre_id);
+  const selectedWC = workCentres.find(wc => wc.id === selectedWorkCentre);
+  const selectedMachines = selectedWorkCentre ? getMachinesForWorkCentre(selectedWorkCentre) : [];
+  
+  // Get time-based greeting
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
   };
 
-  const filteredWorkCentres = workCentres.filter(wc => {
-    if (!searchQuery) return true;
-    const wcMachines = getMachinesForWorkCentre(wc.id);
-    const matchesWcName = wc.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesMachine = wcMachines.some(m => 
-      m.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return matchesWcName || matchesMachine;
-  });
-
-  const canManageMachines = hasRole(["admin", "supervisor"]);
-
-  const totalMachines = machines.length;
-  const availableMachines = machines.filter(m => m.status === 'available').length;
-  const inUseMachines = machines.filter(m => m.status === 'in_use').length;
-  const maintenanceMachines = machines.filter(m => m.status === 'under_maintenance').length;
+  const canManage = hasRole(["admin", "supervisor"]);
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div>
-              <h1 style={{ fontSize: '24px', fontWeight: '600', color: '#1e293b', margin: 0 }}>
-                Work Centres
-              </h1>
-              <p style={{ color: '#64748b', marginTop: '4px', fontSize: '14px' }}>
-                Machines organized by production area
-              </p>
-            </div>
-            {canManageMachines && (
-              <Link href="/admin/work-centres" title="Add Work Centre" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '32px',
-                height: '32px',
-                background: BRAND_BLUE,
-                color: 'white',
-                borderRadius: '6px',
-                textDecoration: 'none',
-              }}>
-                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </Link>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              onClick={() => fetchData()}
-              disabled={isLoading}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 12px',
-                background: 'white',
-                border: '1px solid #e2e8f0',
-                color: '#64748b',
-                borderRadius: '6px',
-                fontWeight: '500',
-                fontSize: '13px',
-                cursor: isLoading ? 'not-allowed' : 'pointer',
-                opacity: isLoading ? 0.6 : 1,
-              }}
-              title="Refresh data"
-            >
-              <svg style={{ width: '16px', height: '16px', animation: isLoading ? 'spin 1s linear infinite' : 'none' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-            {canManageMachines && (
-              <Link href="/machines/new" style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                background: 'white',
-                border: '1px solid #e2e8f0',
-                color: '#1e293b',
-                borderRadius: '6px',
-                fontWeight: '500',
-                fontSize: '13px',
-                textDecoration: 'none',
-              }}>
-                <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Add Machine
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* Stats Bar */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '1px', 
-          background: '#e2e8f0', 
-          borderRadius: '6px', 
-          overflow: 'hidden',
-          marginBottom: '16px',
+    <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+      {/* Welcome Header */}
+      <div 
+        style={{ 
+          textAlign: 'center', 
+          marginBottom: '40px',
+          animation: 'fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        <p style={{ 
+          fontSize: '16px', 
+          color: '#64748b', 
+          margin: '0 0 8px 0',
+          fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
         }}>
-          <div style={{ flex: 1, background: 'white', padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', color: BRAND_BLUE }}>{workCentres.length}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '500' }}>Work Centres</div>
-          </div>
-          <div style={{ flex: 1, background: 'white', padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', color: '#16a34a' }}>{availableMachines}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '500' }}>Available</div>
-          </div>
-          <div style={{ flex: 1, background: 'white', padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', color: '#2563eb' }}>{inUseMachines}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '500' }}>In Use</div>
-          </div>
-          <div style={{ flex: 1, background: 'white', padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', color: '#d97706' }}>{maintenanceMachines}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '500' }}>Maintenance</div>
-          </div>
-          <div style={{ flex: 1, background: 'white', padding: '12px 16px', textAlign: 'center' }}>
-            <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b' }}>{totalMachines}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: '500' }}>Total</div>
-          </div>
-        </div>
-
-        {/* Search */}
-        <div style={{ position: 'relative', maxWidth: '320px' }}>
-          <svg style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#94a3b8' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 10px 8px 34px',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              fontSize: '13px',
-              outline: 'none',
-              background: 'white',
-            }}
-          />
-        </div>
+          {getGreeting()}, {user?.name?.split(' ')[0] || 'Operator'}
+        </p>
+        <h1 style={{ 
+          fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+          fontSize: '32px', 
+          fontWeight: 'bold', 
+          color: '#111827', 
+          margin: 0,
+          letterSpacing: '-0.02em',
+        }}>
+          Where are you working today?
+        </h1>
+        <p style={{ 
+          fontSize: '15px', 
+          color: '#6b7280', 
+          margin: '12px 0 0 0',
+        }}>
+          Select your work centre to see available machines and checklists
+        </p>
       </div>
 
-      {/* Loading */}
+      {/* Loading State */}
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} style={{ background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              <div style={{ height: '48px', background: '#f1f5f9' }} />
-              <div style={{ padding: '12px' }}>
-                <div style={{ height: '14px', background: '#f1f5f9', borderRadius: '4px', width: '70%', marginBottom: '8px' }} />
-                <div style={{ height: '14px', background: '#f1f5f9', borderRadius: '4px', width: '50%' }} />
-              </div>
+            <div 
+              key={i} 
+              style={{ 
+                background: 'white', 
+                borderRadius: '16px', 
+                border: '2px solid #e2e8f0',
+                padding: '32px 24px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ 
+                width: '64px', 
+                height: '64px', 
+                margin: '0 auto 16px', 
+                borderRadius: '16px',
+                background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }} />
+              <div style={{ 
+                height: '20px', 
+                borderRadius: '6px', 
+                width: '70%', 
+                margin: '0 auto',
+                background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
+                backgroundSize: '200% 100%',
+                animation: 'shimmer 1.5s ease-in-out infinite',
+              }} />
             </div>
           ))}
         </div>
       ) : error ? (
-        <div style={{ background: 'white', borderRadius: '8px', padding: '40px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <p style={{ color: '#ef4444', fontSize: '14px' }}>{error}</p>
+        <div style={{ 
+          background: 'white', 
+          borderRadius: '16px', 
+          padding: '48px', 
+          textAlign: 'center', 
+          border: '2px solid #fee2e2',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#991b1b', marginBottom: '8px' }}>Something went wrong</h3>
+          <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '20px' }}>{error}</p>
+          <button
+            onClick={() => fetchData()}
+            style={{
+              padding: '12px 24px',
+              background: BRAND_BLUE,
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontWeight: '600',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            Try Again
+          </button>
         </div>
-      ) : filteredWorkCentres.length === 0 ? (
-        <div style={{ background: 'white', borderRadius: '8px', padding: '40px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ fontSize: '15px', fontWeight: '600', color: '#1e293b', marginBottom: '4px' }}>No work centres found</h3>
-          <p style={{ color: '#64748b', fontSize: '13px' }}>
-            {searchQuery ? "Try adjusting your search" : "Set up work centres in Admin settings"}
-          </p>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
-          {filteredWorkCentres.map((workCentre) => {
-            const wcMachines = getMachinesForWorkCentre(workCentre.id);
-            
-            return (
-              <div 
-                key={workCentre.id} 
-                style={{ 
-                  background: 'white',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  border: '1px solid #e2e8f0',
+      ) : !selectedWorkCentre ? (
+        /* Work Centre Selection */
+        <>
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+            gap: '16px',
+          }}>
+            {workCentres.map((workCentre, index) => {
+              const wcMachines = getMachinesForWorkCentre(workCentre.id);
+              const availableCount = wcMachines.filter(m => m.status === 'available').length;
+              
+              return (
+                <button
+                  key={workCentre.id}
+                  onClick={() => setSelectedWorkCentre(workCentre.id)}
+                  style={{
+                    background: 'white',
+                    border: '2px solid #e2e8f0',
+                    borderRadius: '16px',
+                    padding: '32px 24px',
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                    animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 50}ms backwards`,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = BRAND_BLUE;
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(0, 87, 168, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    margin: '0 auto 16px',
+                    background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '32px',
+                  }}>
+                    {getWorkCentreIcon(workCentre.name)}
+                  </div>
+                  <h3 style={{ 
+                    fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+                    fontSize: '18px', 
+                    fontWeight: '600', 
+                    color: '#111827', 
+                    margin: '0 0 8px 0',
+                  }}>
+                    {workCentre.name}
+                  </h3>
+                  <p style={{ 
+                    fontSize: '14px', 
+                    color: '#6b7280', 
+                    margin: 0,
+                  }}>
+                    {wcMachines.length} machine{wcMachines.length !== 1 ? 's' : ''}
+                    {availableCount > 0 && (
+                      <span style={{ color: '#16a34a', fontWeight: 600 }}>
+                        {' '}• {availableCount} available
+                      </span>
+                    )}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Admin Link */}
+          {canManage && (
+            <div style={{ 
+              marginTop: '32px', 
+              textAlign: 'center',
+              animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards',
+            }}>
+              <Link
+                href="/admin/work-centres"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '12px 20px',
+                  color: '#64748b',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  textDecoration: 'none',
+                  borderRadius: '10px',
+                  transition: 'background 0.15s, color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f1f5f9';
+                  e.currentTarget.style.color = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#64748b';
                 }}
               >
-                {/* Header */}
-                <div style={{ 
-                  background: BRAND_BLUE,
-                  padding: '12px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'white', margin: 0 }}>
-                      {workCentre.name}
-                    </h2>
-                    {workCentre.description && (
-                      <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', margin: '2px 0 0 0' }}>
-                        {workCentre.description}
-                      </p>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {canManageMachines && (
-                      <Link 
-                        href={`/machines/new?workCentreId=${workCentre.id}`} 
-                        title="Add machine to this work centre"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '28px',
-                          height: '28px',
-                          background: 'rgba(255,255,255,0.2)',
-                          borderRadius: '4px',
-                          color: 'white',
-                          textDecoration: 'none',
-                        }}
-                      >
-                        <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                        </svg>
-                      </Link>
-                    )}
-                    <div style={{
-                      background: 'rgba(255,255,255,0.2)',
-                      borderRadius: '4px',
-                      padding: '4px 10px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: 'white',
-                    }}>
-                      {wcMachines.length}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Machines List */}
-                <div style={{ 
-                  maxHeight: wcMachines.length > 4 ? '200px' : 'auto', 
-                  overflowY: wcMachines.length > 4 ? 'auto' : 'visible',
-                }}>
-                  {wcMachines.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                      No machines assigned
-                    </div>
-                  ) : (
-                    wcMachines.map((machine, idx) => (
-                      <Link 
-                        key={machine.id} 
-                        href={`/machines/${machine.id}`}
-                        style={{ textDecoration: 'none', display: 'block' }}
-                      >
-                        <div style={{
-                          padding: '10px 14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none',
-                          background: 'white',
-                          cursor: 'pointer',
-                        }}>
-                          <div style={{
-                            width: '8px',
-                            height: '8px',
-                            borderRadius: '50%',
-                            background: statusConfig[machine.status].dot,
-                            flexShrink: 0,
-                          }} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: '500', color: '#1e293b', fontSize: '13px' }}>
-                              {machine.name}
-                            </div>
-                            {machine.manufacturer && (
-                              <div style={{ fontSize: '11px', color: '#64748b' }}>
-                                {machine.manufacturer} {machine.model}
-                              </div>
-                            )}
-                          </div>
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: '500',
-                            padding: '2px 6px',
-                            borderRadius: '3px',
-                            background: statusConfig[machine.status].bg,
-                            color: statusConfig[machine.status].color,
-                          }}>
-                            {statusConfig[machine.status].label}
-                          </span>
-                        </div>
-                      </Link>
-                    ))
-                  )}
-                </div>
-                {wcMachines.length > 4 && (
-                  <div style={{ padding: '6px 14px', borderTop: '1px solid #f1f5f9', textAlign: 'center', fontSize: '11px', color: '#64748b' }}>
-                    Scroll for more ({wcMachines.length} total)
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Unassigned */}
-          {getUnassignedMachines().length > 0 && (
-            <div style={{ 
-              background: 'white',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              border: '1px solid #e2e8f0',
-            }}>
-              <div style={{ 
-                background: '#64748b',
-                padding: '12px 16px',
+                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                Manage Work Centres
+              </Link>
+            </div>
+          )}
+        </>
+      ) : (
+        /* Machine Selection for Selected Work Centre */
+        <div style={{ animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+          {/* Back Button & Title */}
+          <div style={{ marginBottom: '24px' }}>
+            <button
+              onClick={() => setSelectedWorkCentre(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                background: 'white',
+                border: '2px solid #e2e8f0',
+                borderRadius: '10px',
+                color: '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                marginBottom: '20px',
+                transition: 'border-color 0.15s, color 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#cbd5e1';
+                e.currentTarget.style.color = '#374151';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.color = '#64748b';
+              }}
+            >
+              <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Change Work Centre
+            </button>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+                borderRadius: '14px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
+                justifyContent: 'center',
+                fontSize: '28px',
+                boxShadow: '0 4px 12px rgba(0, 87, 168, 0.25)',
               }}>
-                <div>
-                  <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'white', margin: 0 }}>
-                    Unassigned
-                  </h2>
-                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.75)', margin: '2px 0 0 0' }}>
-                    Not assigned to a work centre
-                  </p>
-                </div>
-                <div style={{
-                  background: 'rgba(255,255,255,0.2)',
-                  borderRadius: '4px',
-                  padding: '4px 10px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: 'white',
-                }}>
-                  {getUnassignedMachines().length}
-                </div>
+                {getWorkCentreIcon(selectedWC?.name || '')}
               </div>
               <div>
-                {getUnassignedMachines().map((machine, idx) => (
-                  <Link key={machine.id} href={`/machines/${machine.id}`} style={{ textDecoration: 'none', display: 'block' }}>
-                    <div style={{
-                      padding: '10px 14px',
+                <h2 style={{ 
+                  fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+                  fontSize: '24px', 
+                  fontWeight: 'bold', 
+                  color: '#111827', 
+                  margin: 0,
+                }}>
+                  {selectedWC?.name}
+                </h2>
+                <p style={{ fontSize: '15px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                  Select a machine to start your checklist
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Machine List */}
+          {selectedMachines.length === 0 ? (
+            <div style={{ 
+              background: 'white', 
+              borderRadius: '16px', 
+              padding: '48px', 
+              textAlign: 'center', 
+              border: '2px dashed #e2e8f0',
+            }}>
+              <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔧</div>
+              <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                No machines in this work centre
+              </h3>
+              <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                Ask your supervisor to add machines to this area
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {selectedMachines.map((machine, index) => {
+                const status = statusConfig[machine.status];
+                const isAvailable = machine.status === 'available';
+                
+                return (
+                  <div
+                    key={machine.id}
+                    style={{
+                      background: 'white',
+                      borderRadius: '16px',
+                      border: '2px solid #e2e8f0',
+                      padding: '20px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '10px',
-                      borderTop: idx > 0 ? '1px solid #f1f5f9' : 'none',
+                      gap: '20px',
+                      transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                      animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 50}ms backwards`,
+                      opacity: isAvailable ? 1 : 0.7,
+                    }}
+                  >
+                    {/* Status Indicator */}
+                    <div style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '14px',
+                      background: status.bg,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}>
                       <div style={{
-                        width: '8px',
-                        height: '8px',
+                        width: '16px',
+                        height: '16px',
                         borderRadius: '50%',
-                        background: statusConfig[machine.status].dot,
+                        background: status.dot,
+                        boxShadow: `0 0 12px ${status.dot}60`,
                       }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '500', color: '#1e293b', fontSize: '13px' }}>{machine.name}</div>
-                        {machine.manufacturer && (
-                          <div style={{ fontSize: '11px', color: '#64748b' }}>{machine.manufacturer}</div>
-                        )}
-                      </div>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: '500',
-                        padding: '2px 6px',
-                        borderRadius: '3px',
-                        background: statusConfig[machine.status].bg,
-                        color: statusConfig[machine.status].color,
-                      }}>
-                        {statusConfig[machine.status].label}
-                      </span>
                     </div>
-                  </Link>
-                ))}
-              </div>
+
+                    {/* Machine Info */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h3 style={{ 
+                        fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+                        fontSize: '17px', 
+                        fontWeight: '600', 
+                        color: '#111827', 
+                        margin: '0 0 4px 0',
+                      }}>
+                        {machine.name}
+                      </h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        {machine.manufacturer && (
+                          <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                            {machine.manufacturer} {machine.model}
+                          </span>
+                        )}
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: '600',
+                          padding: '4px 10px',
+                          borderRadius: '9999px',
+                          background: status.bg,
+                          color: status.color,
+                        }}>
+                          {status.label}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    {isAvailable ? (
+                      <Link
+                        href={`/checklists/new?machineId=${machine.id}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '14px 24px',
+                          background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+                          color: 'white',
+                          borderRadius: '12px',
+                          textDecoration: 'none',
+                          fontWeight: '600',
+                          fontSize: '14px',
+                          boxShadow: '0 4px 14px rgba(0, 87, 168, 0.25)',
+                          transition: 'transform 0.15s, box-shadow 0.15s',
+                          flexShrink: 0,
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 87, 168, 0.35)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 87, 168, 0.25)';
+                        }}
+                      >
+                        <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                        </svg>
+                        Start Checklist
+                      </Link>
+                    ) : (
+                      <div style={{
+                        padding: '14px 24px',
+                        background: '#f1f5f9',
+                        color: '#64748b',
+                        borderRadius: '12px',
+                        fontWeight: '500',
+                        fontSize: '14px',
+                        flexShrink: 0,
+                      }}>
+                        Not Available
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
       )}
-
-      <style jsx>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 }
