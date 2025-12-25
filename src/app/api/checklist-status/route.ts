@@ -18,6 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch in-progress and recently completed checklists with user info
+    // Use explicit foreign key reference because checklist_runs has two FKs to users (user_id and supervisor_id)
     const { data: checklists, error } = await supabase
       .from("checklist_runs")
       .select(
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
           id,
           name
         ),
-        users (
+        users!checklist_runs_user_id_fkey (
           name
         )
       `
@@ -100,31 +101,37 @@ export async function GET(request: NextRequest) {
     // Optionally fetch activity log
     let activity: any[] = [];
     if (includeActivity) {
-      const { data: activityData, error: activityError } = await supabase
-        .from("activity_log")
-        .select(`
-          id,
-          action_type,
-          entity_type,
-          entity_id,
-          machine_id,
-          metadata,
-          created_at,
-          users (name),
-          machines (name)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(20);
+      try {
+        // Note: activity_log table may not exist yet if SQL migration hasn't been run
+        const { data: activityData, error: activityError } = await supabase
+          .from("activity_log")
+          .select(`
+            id,
+            action_type,
+            entity_type,
+            entity_id,
+            machine_id,
+            metadata,
+            created_at,
+            users!activity_log_user_id_fkey (name),
+            machines (name)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(20);
 
-      if (!activityError && activityData) {
-        activity = activityData.map((item: any) => ({
-          id: item.id,
-          action_type: item.action_type,
-          user_name: item.users?.name || "Unknown",
-          machine_name: item.machines?.name || null,
-          created_at: item.created_at,
-          metadata: item.metadata,
-        }));
+        if (!activityError && activityData) {
+          activity = activityData.map((item: any) => ({
+            id: item.id,
+            action_type: item.action_type,
+            user_name: item.users?.name || "Unknown",
+            machine_name: item.machines?.name || null,
+            created_at: item.created_at,
+            metadata: item.metadata,
+          }));
+        }
+      } catch (e) {
+        // Activity log table may not exist yet - that's OK
+        console.log("Activity log not available (run command-center-tables.sql migration)");
       }
     }
 
