@@ -9,12 +9,12 @@ import { X, LogOut } from "lucide-react";
 import { BRAND } from "@/lib/branding";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "home" },
   { href: "/work-centres", label: "Work Centres", icon: "grid" },
   { href: "/checklists", label: "Checklists", icon: "clipboard" },
 ];
 
 const adminItems = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: "home" },
   { href: "/admin/work-centres", label: "Work Centres", icon: "grid" },
   { href: "/admin/machines", label: "Machines", icon: "machine" },
   { href: "/admin/templates", label: "Checklist Templates", icon: "template" },

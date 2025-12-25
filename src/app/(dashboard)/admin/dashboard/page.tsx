@@ -5,7 +5,7 @@ import Link from "next/link";
 
 const BRAND_BLUE = "#0057A8";
 
-export default function DashboardPage() {
+export default function AdminDashboardPage() {
   return (
     <div style={{ maxWidth: "1400px", margin: "0 auto" }}>
       {/* Header */}
@@ -30,7 +30,7 @@ export default function DashboardPage() {
               letterSpacing: "-0.02em",
             }}
           >
-            Checklist Dashboard
+            Admin Dashboard
           </h1>
           <p 
             style={{ 
@@ -209,3 +209,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
