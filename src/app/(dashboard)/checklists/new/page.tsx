@@ -22,13 +22,6 @@ interface ChecklistTemplate {
   frequency: ChecklistFrequency | null;
 }
 
-const cardStyle: React.CSSProperties = {
-  background: 'white',
-  borderRadius: '16px',
-  boxShadow: 'var(--shadow-card, 0 0 0 1px rgba(0, 0, 0, 0.02), 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 8px 24px -4px rgba(0, 0, 0, 0.06))',
-  border: '1px solid #e2e8f0',
-};
-
 const BRAND_BLUE = '#0057A8';
 
 // Calculate due date based on frequency
@@ -60,13 +53,14 @@ function calculateDueDate(frequency: ChecklistFrequency | null, startDate: Date 
   return due;
 }
 
-const frequencyLabels: Record<ChecklistFrequency, string> = {
-  once: "One-time",
-  daily: "Daily",
-  weekly: "Weekly",
-  monthly: "Monthly",
-  quarterly: "Quarterly",
-  annually: "Annually",
+// Checklist type icons and colors
+const checklistTypeConfig: Record<string, { icon: string; color: string; bg: string; label: string }> = {
+  pre_run: { icon: "▶️", color: "#16a34a", bg: "#dcfce7", label: "Pre-Run Check" },
+  first_off: { icon: "🎯", color: "#2563eb", bg: "#dbeafe", label: "First-Off Inspection" },
+  shutdown: { icon: "⏹️", color: "#dc2626", bg: "#fee2e2", label: "Shutdown Check" },
+  maintenance: { icon: "🔧", color: "#d97706", bg: "#fef3c7", label: "Maintenance" },
+  safety: { icon: "🛡️", color: "#7c3aed", bg: "#ede9fe", label: "Safety Inspection" },
+  quality: { icon: "✅", color: "#0891b2", bg: "#cffafe", label: "Quality Check" },
 };
 
 function NewChecklistContent() {
@@ -76,15 +70,12 @@ function NewChecklistContent() {
   const supabase = createClient();
 
   const preselectedMachineId = searchParams.get("machineId");
-  const preselectedTemplateId = searchParams.get("templateId");
 
   const [machines, setMachines] = useState<Machine[]>([]);
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [selectedMachineId, setSelectedMachineId] = useState(preselectedMachineId || "");
-  const [selectedTemplateId, setSelectedTemplateId] = useState(preselectedTemplateId || "");
-  const [jobNumber, setJobNumber] = useState("");
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<string | null>(null); // track which template is being submitted
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -111,70 +102,54 @@ function NewChecklistContent() {
     : templates;
 
   const selectedMachine = machines.find(m => m.id === selectedMachineId);
-  const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
-
-  // Calculate due date preview
-  const dueDate = selectedTemplate ? calculateDueDate(selectedTemplate.frequency) : null;
 
   // Generate job number based on machine, date, and sequence
   const generateJobNumber = (machineName: string) => {
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0].replace(/-/g, ''); // YYYYMMDD
+    const dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
     const machineCode = machineName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 6).toUpperCase();
     const timeSeq = today.getHours().toString().padStart(2, '0') + today.getMinutes().toString().padStart(2, '0');
     return `${machineCode}-${dateStr}-${timeSeq}`;
   };
 
-  // Auto-generate job number when machine is selected
-  useEffect(() => {
-    if (selectedMachine) {
-      setJobNumber(generateJobNumber(selectedMachine.name));
-    } else {
-      setJobNumber("");
-    }
-  }, [selectedMachine]);
+  const handleStartChecklist = async (template: ChecklistTemplate) => {
+    if (!selectedMachineId || !user || isSubmitting) return;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedMachineId || !selectedTemplateId || !user) return;
-
-    setIsSubmitting(true);
+    setIsSubmitting(template.id);
     setError(null);
 
     try {
       const now = new Date();
-      const calculatedDueDate = selectedTemplate ? calculateDueDate(selectedTemplate.frequency, now) : null;
+      const calculatedDueDate = calculateDueDate(template.frequency, now);
+      const jobNumber = selectedMachine ? generateJobNumber(selectedMachine.name) : null;
 
       const { data, error: insertError } = await supabase
         .from("checklist_runs")
         .insert({
-          template_id: selectedTemplateId,
+          template_id: template.id,
           machine_id: selectedMachineId,
           user_id: user.id,
           status: "in_progress",
           started_at: now.toISOString(),
           due_date: calculatedDueDate ? calculatedDueDate.toISOString() : null,
-          job_number: jobNumber || null,
+          job_number: jobNumber,
         })
         .select("id")
         .single();
 
       if (insertError) throw insertError;
 
-      // Redirect to run the checklist
       router.push(`/checklists/${data.id}/run`);
     } catch (err: any) {
       console.error("Error creating checklist run:", err);
       setError(err.message || "Failed to start checklist");
-      setIsSubmitting(false);
+      setIsSubmitting(null);
     }
   };
 
-  const canSubmit = selectedMachineId && selectedTemplateId && !isSubmitting;
-
   if (isLoading) {
     return (
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '700px', margin: '0 auto' }}>
         <div style={{ 
           height: '32px', 
           background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
@@ -182,353 +157,402 @@ function NewChecklistContent() {
           animation: 'shimmer 1.5s ease-in-out infinite',
           borderRadius: '8px', 
           width: '200px', 
-          marginBottom: '24px',
+          marginBottom: '32px',
         }} />
-        <div style={{ ...cardStyle, height: '400px' }} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ 
+              background: 'white', 
+              borderRadius: '16px', 
+              border: '2px solid #e2e8f0',
+              padding: '24px',
+              height: '100px',
+            }} />
+          ))}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-        <Link 
-          href="/work-centres" 
-          style={{ 
-            display: 'inline-flex', 
-            alignItems: 'center', 
-            gap: '8px', 
-            padding: '8px 12px', 
-            color: '#6b7280', 
-            fontSize: '14px', 
-            fontWeight: '500', 
-            textDecoration: 'none',
-            borderRadius: '8px',
-            transition: 'background 0.15s, color 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#f3f4f6';
-            e.currentTarget.style.color = '#374151';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = '#6b7280';
-          }}
-        >
-          <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-          Back
-        </Link>
-        <h1 style={{ 
-          fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
-          fontSize: '24px', 
-          fontWeight: 'bold', 
-          color: '#111827', 
-          margin: 0,
-          letterSpacing: '-0.02em',
-        }}>
-          Start New Checklist
-        </h1>
-      </div>
-
-      {/* Operator Info */}
-      <div style={{ ...cardStyle, padding: '20px', marginBottom: '24px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{
-            width: '52px',
-            height: '52px',
-            background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
-            borderRadius: '14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: '700',
-            fontSize: '20px',
-            boxShadow: '0 4px 12px rgba(0, 87, 168, 0.25)',
+  // If no machine selected, show machine selection
+  if (!selectedMachineId) {
+    return (
+      <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <h1 style={{ 
+            fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+            fontSize: '28px', 
+            fontWeight: 'bold', 
+            color: '#111827', 
+            margin: 0,
           }}>
-            {user?.name?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <div>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, fontWeight: 500 }}>Operator</p>
-            <p style={{ 
-              fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
-              fontSize: '18px', 
-              fontWeight: '600', 
-              color: '#111827', 
-              margin: '2px 0 0 0',
-            }}>
-              {user?.name || 'Unknown'}
-            </p>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0 0', textTransform: 'capitalize' }}>
-              {user?.role}
-            </p>
-          </div>
+            Select a Machine
+          </h1>
+          <p style={{ fontSize: '15px', color: '#6b7280', marginTop: '8px' }}>
+            Choose which machine you're working on
+          </p>
         </div>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        {/* Machine Selection */}
-        <div style={{ ...cardStyle, padding: '24px', marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '16px' }}>
-            <span style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
-              Select Machine *
-            </span>
-            <select
-              value={selectedMachineId}
-              onChange={(e) => {
-                setSelectedMachineId(e.target.value);
-                // Reset template if machine changes and template isn't compatible
-                if (selectedTemplateId) {
-                  const template = templates.find(t => t.id === selectedTemplateId);
-                  if (template?.machine_id && template.machine_id !== e.target.value) {
-                    setSelectedTemplateId("");
-                  }
-                }
-              }}
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {machines.map((machine, index) => (
+            <button
+              key={machine.id}
+              onClick={() => setSelectedMachineId(machine.id)}
               style={{
-                width: '100%',
-                padding: '14px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '10px',
-                fontSize: '14px',
-                background: '#fafafa',
-                transition: 'border-color 0.15s, box-shadow 0.15s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '20px',
+                background: 'white',
+                border: '2px solid #e2e8f0',
+                borderRadius: '14px',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s',
+                animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 30}ms backwards`,
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = BRAND_BLUE;
-                e.target.style.boxShadow = '0 0 0 4px rgba(0, 87, 168, 0.1)';
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = BRAND_BLUE;
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 87, 168, 0.12)';
               }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e5e7eb';
-                e.target.style.boxShadow = 'none';
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e2e8f0';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
               }}
             >
-              <option value="">Choose a machine...</option>
-              {machines.map(machine => (
-                <option key={machine.id} value={machine.id}>
-                  {machine.name} {machine.manufacturer ? `(${machine.manufacturer} ${machine.model || ''})` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedMachine && (
-            <div style={{ 
-              padding: '14px', 
-              background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', 
-              borderRadius: '10px', 
-              border: '1px solid #bbf7d0',
-              animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}>
-              <p style={{ fontWeight: '600', color: '#166534', margin: 0 }}>{selectedMachine.name}</p>
-              {selectedMachine.manufacturer && (
-                <p style={{ fontSize: '12px', color: '#166534', margin: '4px 0 0 0' }}>
-                  {selectedMachine.manufacturer} {selectedMachine.model}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Template Selection */}
-        <div style={{ ...cardStyle, padding: '24px', marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '16px' }}>
-            <span style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '8px' }}>
-              Select Checklist Template *
-            </span>
-            <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
-              disabled={!selectedMachineId}
-              style={{
-                width: '100%',
-                padding: '14px',
-                border: '2px solid #e5e7eb',
-                borderRadius: '10px',
-                fontSize: '14px',
-                background: selectedMachineId ? '#fafafa' : '#f1f5f9',
-                cursor: selectedMachineId ? 'pointer' : 'not-allowed',
-                opacity: selectedMachineId ? 1 : 0.7,
-                transition: 'border-color 0.15s, box-shadow 0.15s',
-              }}
-              onFocus={(e) => {
-                if (selectedMachineId) {
-                  e.target.style.borderColor = BRAND_BLUE;
-                  e.target.style.boxShadow = '0 0 0 4px rgba(0, 87, 168, 0.1)';
-                }
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e5e7eb';
-                e.target.style.boxShadow = 'none';
-              }}
-            >
-              <option value="">{selectedMachineId ? 'Choose a checklist...' : 'Select a machine first'}</option>
-              {availableTemplates.map(template => (
-                <option key={template.id} value={template.id}>
-                  {template.name} ({template.type.replace('_', ' ')})
-                  {template.frequency && template.frequency !== 'once' ? ` - ${frequencyLabels[template.frequency]}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {selectedTemplate && (
-            <div style={{ 
-              padding: '14px', 
-              background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', 
-              borderRadius: '10px', 
-              border: '1px solid #bfdbfe',
-              animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                <div>
-                  <p style={{ fontWeight: '600', color: '#1e40af', margin: 0 }}>{selectedTemplate.name}</p>
-                  <p style={{ fontSize: '12px', color: '#1e40af', margin: '4px 0 0 0', textTransform: 'capitalize' }}>
-                    Type: {selectedTemplate.type.replace('_', ' ')}
+              <div style={{
+                width: '48px',
+                height: '48px',
+                background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '24px',
+              }}>
+                🔧
+              </div>
+              <div>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#111827', margin: 0 }}>
+                  {machine.name}
+                </h3>
+                {machine.manufacturer && (
+                  <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                    {machine.manufacturer} {machine.model}
                   </p>
-                </div>
-                {selectedTemplate.frequency && (
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    padding: '4px 10px',
-                    borderRadius: '9999px',
-                    background: 'white',
-                    color: '#1e40af',
-                    border: '1px solid #bfdbfe',
-                  }}>
-                    {frequencyLabels[selectedTemplate.frequency]}
-                  </span>
                 )}
               </div>
-              
-              {/* Due date preview */}
-              {dueDate && (
-                <div style={{ 
-                  marginTop: '12px', 
-                  paddingTop: '12px', 
-                  borderTop: '1px solid #bfdbfe',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}>
-                  <svg style={{ width: '16px', height: '16px', color: '#1e40af' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span style={{ fontSize: '13px', color: '#1e40af' }}>
-                    Due: <strong>{dueDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</strong>
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
+              <svg style={{ width: '20px', height: '20px', color: '#9ca3af', marginLeft: 'auto' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ))}
         </div>
-
-        {/* Job Number */}
-        {selectedMachineId && (
-          <div style={{ ...cardStyle, padding: '24px', marginBottom: '24px', animation: 'fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
-              Job Number
-            </h3>
-            
-            <div style={{ 
-              padding: '18px', 
-              background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', 
-              borderRadius: '10px', 
-              border: '2px solid #e2e8f0',
-              fontFamily: 'monospace',
-              fontSize: '20px',
-              fontWeight: '700',
-              color: BRAND_BLUE,
-              textAlign: 'center',
-              letterSpacing: '2px',
-            }}>
-              {jobNumber}
-            </div>
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '10px 0 0 0', textAlign: 'center' }}>
-              Auto-generated: Machine Code + Date + Time
-            </p>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div style={{ 
-            padding: '14px', 
-            background: '#fef2f2', 
-            borderRadius: '10px', 
-            border: '1px solid #fecaca', 
-            marginBottom: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            animation: 'shake 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}>
-            <svg style={{ width: '20px', height: '20px', color: '#dc2626', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        
+        <div style={{ marginTop: '24px', textAlign: 'center' }}>
+          <Link
+            href="/work-centres"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              color: '#6b7280',
+              fontSize: '14px',
+              textDecoration: 'none',
+            }}
+          >
+            <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
-            <p style={{ color: '#991b1b', margin: 0, fontSize: '14px' }}>{error}</p>
-          </div>
-        )}
+            Back to Work Centres
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={!canSubmit}
+  // Machine is selected - show checklist options
+  return (
+    <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+      {/* Machine Header */}
+      <div style={{ marginBottom: '32px', animation: 'fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+        <Link
+          href="/work-centres"
           style={{
-            width: '100%',
-            padding: '16px',
-            background: canSubmit 
-              ? `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)` 
-              : '#94a3b8',
-            color: 'white',
-            border: 'none',
-            borderRadius: '12px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 16px',
+            background: 'white',
+            border: '2px solid #e2e8f0',
+            borderRadius: '10px',
+            color: '#64748b',
+            fontSize: '14px',
+            fontWeight: '500',
+            textDecoration: 'none',
+            marginBottom: '20px',
+            transition: 'border-color 0.15s, color 0.15s',
+          }}
+        >
+          <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Change Machine
+        </Link>
+
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '16px',
+          padding: '24px',
+          background: 'white',
+          borderRadius: '16px',
+          border: '2px solid #e2e8f0',
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+            borderRadius: '16px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: '10px',
-            boxShadow: canSubmit ? '0 4px 14px rgba(0, 87, 168, 0.25)' : 'none',
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            if (canSubmit) {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(0, 87, 168, 0.35)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (canSubmit) {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 87, 168, 0.25)';
-            }
-          }}
-        >
-          {isSubmitting ? (
-            <>
-              <svg style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
-                <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Starting...
-            </>
-          ) : (
-            <>
-              <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Start Checklist
-            </>
-          )}
-        </button>
-      </form>
+            fontSize: '28px',
+            boxShadow: '0 4px 12px rgba(0, 87, 168, 0.25)',
+          }}>
+            🔧
+          </div>
+          <div>
+            <p style={{ fontSize: '12px', color: '#6b7280', margin: 0, fontWeight: 500 }}>
+              You're working on
+            </p>
+            <h2 style={{ 
+              fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+              fontSize: '22px', 
+              fontWeight: 'bold', 
+              color: '#111827', 
+              margin: '4px 0 0 0',
+            }}>
+              {selectedMachine?.name}
+            </h2>
+            {selectedMachine?.manufacturer && (
+              <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                {selectedMachine.manufacturer} {selectedMachine.model}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* What do you need to do? */}
+      <div style={{ marginBottom: '20px' }}>
+        <h3 style={{ 
+          fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+          fontSize: '20px', 
+          fontWeight: '600', 
+          color: '#111827', 
+          margin: 0,
+        }}>
+          What do you need to do?
+        </h3>
+        <p style={{ fontSize: '14px', color: '#6b7280', margin: '4px 0 0 0' }}>
+          Tap a checklist to start
+        </p>
+      </div>
+
+      {/* Error Message */}
+      {error && (
+        <div style={{ 
+          padding: '14px', 
+          background: '#fef2f2', 
+          borderRadius: '12px', 
+          border: '1px solid #fecaca', 
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          animation: 'shake 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}>
+          <svg style={{ width: '20px', height: '20px', color: '#dc2626', flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p style={{ color: '#991b1b', margin: 0, fontSize: '14px' }}>{error}</p>
+        </div>
+      )}
+
+      {/* Checklist Options */}
+      {availableTemplates.length === 0 ? (
+        <div style={{ 
+          padding: '48px 24px', 
+          background: 'white', 
+          borderRadius: '16px', 
+          border: '2px dashed #e2e8f0',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+            No checklists available
+          </h3>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>
+            Ask your supervisor to create checklist templates for this machine
+          </p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {availableTemplates.map((template, index) => {
+            const typeConfig = checklistTypeConfig[template.type] || { 
+              icon: "📋", 
+              color: "#374151", 
+              bg: "#f3f4f6", 
+              label: template.type.replace('_', ' ') 
+            };
+            const isStarting = isSubmitting === template.id;
+
+            return (
+              <button
+                key={template.id}
+                onClick={() => handleStartChecklist(template)}
+                disabled={!!isSubmitting}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '16px',
+                  padding: '20px',
+                  background: 'white',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '16px',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                  opacity: isSubmitting && !isStarting ? 0.5 : 1,
+                  animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 50}ms backwards`,
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSubmitting) {
+                    e.currentTarget.style.borderColor = typeConfig.color;
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = `0 12px 32px ${typeConfig.color}20`;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* Icon */}
+                <div style={{
+                  width: '56px',
+                  height: '56px',
+                  background: typeConfig.bg,
+                  borderRadius: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '28px',
+                  flexShrink: 0,
+                }}>
+                  {isStarting ? (
+                    <svg style={{ width: '28px', height: '28px', color: typeConfig.color, animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
+                      <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    typeConfig.icon
+                  )}
+                </div>
+
+                {/* Content */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{ 
+                    fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
+                    fontSize: '17px', 
+                    fontWeight: '600', 
+                    color: '#111827', 
+                    margin: 0,
+                  }}>
+                    {template.name}
+                  </h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      padding: '3px 10px',
+                      borderRadius: '9999px',
+                      background: typeConfig.bg,
+                      color: typeConfig.color,
+                    }}>
+                      {typeConfig.label}
+                    </span>
+                    {template.frequency && template.frequency !== 'once' && (
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: '500',
+                        color: '#6b7280',
+                      }}>
+                        • {template.frequency}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Arrow */}
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  background: isStarting ? typeConfig.bg : `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  boxShadow: isStarting ? 'none' : '0 4px 12px rgba(0, 87, 168, 0.25)',
+                }}>
+                  <svg style={{ width: '20px', height: '20px', color: isStarting ? typeConfig.color : 'white' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Operator info footer */}
+      <div style={{ 
+        marginTop: '32px', 
+        padding: '16px 20px',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+        borderRadius: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
+      }}>
+        <div style={{
+          width: '40px',
+          height: '40px',
+          background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+          borderRadius: '10px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          fontWeight: '700',
+          fontSize: '16px',
+        }}>
+          {user?.name?.charAt(0).toUpperCase() || 'U'}
+        </div>
+        <div>
+          <p style={{ fontSize: '13px', color: '#6b7280', margin: 0 }}>Logged in as</p>
+          <p style={{ fontSize: '15px', fontWeight: '600', color: '#111827', margin: '2px 0 0 0' }}>
+            {user?.name || 'Unknown'}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -536,7 +560,7 @@ function NewChecklistContent() {
 export default function NewChecklistPage() {
   return (
     <Suspense fallback={
-      <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '700px', margin: '0 auto' }}>
         <div style={{ 
           height: '32px', 
           background: 'linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)',
@@ -546,7 +570,6 @@ export default function NewChecklistPage() {
           width: '200px', 
           marginBottom: '24px',
         }} />
-        <div style={{ ...cardStyle, height: '400px' }} />
       </div>
     }>
       <NewChecklistContent />
