@@ -154,7 +154,7 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
       item_id: itemId,
       value,
       comment: comment || null,
-      photo_url: photoUrl !== undefined ? photoUrl : (existingAnswer?.photo_url || null),
+      photo_url: photoUrl !== undefined ? (photoUrl || null) : (existingAnswer?.photo_url || null),
       answered_at: new Date().toISOString(),
     };
 
@@ -214,8 +214,23 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
   const handlePhotoUpload = (itemId: string, photoUrl: string) => {
     if (!uploadingSectionId) return;
     const existingAnswer = answers.get(itemId);
+    
+    // Save the photo (or removal of photo) to the answer
     if (existingAnswer) {
-      saveAnswer(uploadingSectionId, itemId, existingAnswer.value as boolean | string | number, existingAnswer.comment || undefined, photoUrl);
+      // Update existing answer with new photo URL (or empty string to remove)
+      saveAnswer(
+        uploadingSectionId, 
+        itemId, 
+        existingAnswer.value as boolean | string | number, 
+        existingAnswer.comment || undefined, 
+        photoUrl || "" // Empty string removes the photo
+      );
+    }
+    
+    // If photo was removed (empty string), update local state immediately
+    if (!photoUrl && existingAnswer) {
+      const updatedAnswer = { ...existingAnswer, photo_url: null };
+      setAnswers(new Map(answers.set(itemId, updatedAnswer)));
     }
   };
 
