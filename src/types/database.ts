@@ -233,3 +233,91 @@ export interface Mould {
   created_at: string;
   updated_at: string;
 }
+
+// Command Center types
+export type AssignmentPriority = "low" | "normal" | "high" | "urgent";
+export type AssignmentStatus = "pending" | "in_progress" | "completed" | "cancelled";
+
+export interface ChecklistAssignment {
+  id: string;
+  checklist_template_id: string;
+  machine_id: string;
+  assigned_to: string;
+  assigned_by?: string | null;
+  due_date?: string | null;
+  priority: AssignmentPriority;
+  notes?: string | null;
+  status: AssignmentStatus;
+  completed_run_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  checklist_templates?: { name: string } | null;
+  machines?: { name: string } | null;
+  users?: { name: string } | null;
+  assigned_by_user?: { name: string } | null;
+}
+
+export interface ChecklistSkip {
+  id: string;
+  checklist_template_id: string;
+  machine_id: string;
+  skipped_by: string;
+  reason: string;
+  skip_date: string;
+  created_at: string;
+  // Joined fields
+  checklist_templates?: { name: string } | null;
+  machines?: { name: string } | null;
+  users?: { name: string } | null;
+}
+
+export type ConcernSeverity = "low" | "medium" | "high" | "critical";
+export type ConcernStatus = "open" | "in_review" | "resolved" | "escalated";
+
+export interface MachineConcern {
+  id: string;
+  machine_id: string;
+  checklist_run_id?: string | null;
+  checklist_item_id?: string | null;
+  checklist_item_name?: string | null;
+  raised_by: string;
+  severity: ConcernSeverity;
+  description: string;
+  photo_url?: string | null;
+  status: ConcernStatus;
+  resolved_by?: string | null;
+  resolved_at?: string | null;
+  resolution_notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  machines?: { name: string } | null;
+  raised_by_user?: { name: string } | null;
+  resolved_by_user?: { name: string } | null;
+}
+
+export type ActivityActionType = 
+  | "checklist_started"
+  | "checklist_completed"
+  | "checklist_abandoned"
+  | "concern_raised"
+  | "concern_resolved"
+  | "assignment_created"
+  | "assignment_completed"
+  | "cycle_skipped"
+  | "machine_status_changed";
+
+export interface ActivityLog {
+  id: string;
+  user_id?: string | null;
+  action_type: ActivityActionType;
+  entity_type: string;
+  entity_id?: string | null;
+  machine_id?: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  // Joined fields
+  users?: { name: string } | null;
+  machines?: { name: string } | null;
+}

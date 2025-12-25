@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import type { ChecklistFrequency } from "@/types/database";
+import { CommandCenterPanel } from "./CommandCenterPanel";
+import { Activity, Users } from "lucide-react";
 
 interface ChecklistStatus {
   id: string;
   template_id: string;
   template_name: string;
+  machine_id: string | null;
   machine_name: string | null;
   frequency: ChecklistFrequency | null;
   status: "in_progress" | "completed" | "aborted";
@@ -17,6 +20,33 @@ interface ChecklistStatus {
   compliance_status: "on_time" | "due_soon" | "overdue" | "completed" | "in_progress";
   days_overdue: number;
   is_scheduled: boolean;
+  user_name?: string;
+}
+
+interface PanelChecklist {
+  id: string;
+  name: string;
+  machine_name: string;
+  machine_id: string;
+  template_id: string;
+  frequency: string | null;
+  status: "on_time" | "due_soon" | "overdue" | "in_progress" | "no_schedule";
+  days_overdue: number;
+  due_date: string | null;
+  last_completed_at: string | null;
+  last_completed_by: string | null;
+  current_run_id: string | null;
+  current_run_user: string | null;
+  current_run_started: string | null;
+}
+
+interface ActivityItem {
+  id: string;
+  action_type: string;
+  user_name: string;
+  machine_name: string | null;
+  created_at: string;
+  metadata: Record<string, unknown>;
 }
 
 interface TrafficLightDashboardProps {
@@ -38,12 +68,11 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
   const [checklists, setChecklists] = useState<ChecklistStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "scheduled" | "no_schedule">("all");
+  const [selectedChecklist, setSelectedChecklist] = useState<PanelChecklist | null>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
 
-  useEffect(() => {
-    fetchChecklists();
-  }, []);
-
-  const fetchChecklists = async () => {
+  const fetchChecklists = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch("/api/checklist-status");
@@ -55,15 +84,30 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
       console.error("Error fetching checklist status:", error);
     }
     setIsLoading(false);
-  };
+  }, []);
+
+  const fetchActivity = useCallback(async () => {
+    try {
+      const response = await fetch("/api/checklist-status?activity=true");
+      const data = await response.json();
+      if (data.activity) {
+        setRecentActivity(data.activity);
+      }
+    } catch (error) {
+      console.error("Error fetching activity:", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchChecklists();
+    fetchActivity();
+  }, [fetchChecklists, fetchActivity]);
 
   const getStatusDisplay = (checklist: ChecklistStatus) => {
     if (!checklist.is_scheduled) {
-      // No schedule - just show as in progress (neutral blue)
       return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
     }
     
-    // Scheduled checklists get traffic light treatment
     switch (checklist.compliance_status) {
       case "on_time":
         return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "🟢", label: "On Time" };
@@ -98,6 +142,75 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
     }
   };
 
+  const handleCardClick = (checklist: ChecklistStatus) => {
+    // Transform to panel format
+    const panelData: PanelChecklist = {
+      id: checklist.id,
+      name: checklist.template_name,
+      machine_name: checklist.machine_name || "No machine",
+      machine_id: checklist.machine_id || "",
+      template_id: checklist.template_id,
+      frequency: checklist.frequency,
+      status: !checklist.is_scheduled ? "no_schedule" : 
+              checklist.compliance_status === "on_time" ? "on_time" :
+              checklist.compliance_status === "due_soon" ? "due_soon" :
+              checklist.compliance_status === "overdue" ? "overdue" : "in_progress",
+      days_overdue: checklist.days_overdue,
+      due_date: checklist.due_date,
+      last_completed_at: null, // Will be fetched in panel
+      last_completed_by: null,
+      current_run_id: checklist.id,
+      current_run_user: checklist.user_name || null,
+      current_run_started: checklist.started_at,
+    };
+    
+    setSelectedChecklist(panelData);
+    setIsPanelOpen(true);
+  };
+
+  const handlePanelAction = () => {
+    // Refresh data after an action
+    fetchChecklists();
+    fetchActivity();
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
+  const getActivityIcon = (type: string) => {
+    switch (type) {
+      case "checklist_started": return "🟢";
+      case "checklist_completed": return "✅";
+      case "checklist_abandoned": return "❌";
+      case "concern_raised": return "⚠️";
+      case "assignment_created": return "👤";
+      case "cycle_skipped": return "⏭️";
+      default: return "📋";
+    }
+  };
+
+  const getActivityText = (activity: ActivityItem) => {
+    switch (activity.action_type) {
+      case "checklist_started": return `started a checklist`;
+      case "checklist_completed": return `completed a checklist`;
+      case "checklist_abandoned": return `abandoned a checklist`;
+      case "concern_raised": return `raised a concern`;
+      case "assignment_created": return `assigned a checklist`;
+      case "cycle_skipped": return `skipped a cycle`;
+      default: return activity.action_type;
+    }
+  };
+
   // Filter checklists
   const inProgressChecklists = checklists.filter(c => c.status === "in_progress");
   
@@ -113,11 +226,9 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
   const noScheduleChecklists = inProgressChecklists.filter(c => !c.is_scheduled);
   
   const stats = {
-    // Scheduled traffic lights
     onTime: scheduledChecklists.filter(c => c.compliance_status === "on_time").length,
     dueSoon: scheduledChecklists.filter(c => c.compliance_status === "due_soon").length,
     overdue: scheduledChecklists.filter(c => c.compliance_status === "overdue").length,
-    // No schedule
     noSchedule: noScheduleChecklists.length,
   };
 
@@ -141,7 +252,67 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
 
   return (
     <div>
-      {/* Traffic Light Stats - Only for SCHEDULED checklists */}
+      {/* Live Activity Feed */}
+      {recentActivity.length > 0 && (
+        <div style={{
+          background: "white",
+          borderRadius: "16px",
+          border: "2px solid #e2e8f0",
+          padding: "20px",
+          marginBottom: "24px",
+          animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+            <Activity style={{ width: "20px", height: "20px", color: BRAND_BLUE }} />
+            <h3 style={{ 
+              fontFamily: 'var(--font-display)', 
+              fontSize: "15px", 
+              fontWeight: "700", 
+              color: "#111827", 
+              margin: 0,
+            }}>
+              Live Activity
+            </h3>
+            <div style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: "#22c55e",
+              animation: "pulse 2s infinite",
+            }} />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            {recentActivity.slice(0, 5).map((activity) => (
+              <div
+                key={activity.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  padding: "10px 14px",
+                  background: "#f8fafc",
+                  borderRadius: "10px",
+                  fontSize: "14px",
+                }}
+              >
+                <span style={{ fontSize: "18px" }}>{getActivityIcon(activity.action_type)}</span>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontWeight: "600", color: "#111827" }}>{activity.user_name}</span>
+                  <span style={{ color: "#6b7280" }}> {getActivityText(activity)}</span>
+                  {activity.machine_name && (
+                    <span style={{ color: "#6b7280" }}> on <strong>{activity.machine_name}</strong></span>
+                  )}
+                </div>
+                <span style={{ fontSize: "12px", color: "#9ca3af", flexShrink: 0 }}>
+                  {getTimeAgo(activity.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Traffic Light Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "24px" }}>
         {/* On Time */}
         <div
@@ -208,7 +379,7 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
           <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>Past due date</p>
         </div>
 
-        {/* No Schedule (Ad-hoc) */}
+        {/* No Schedule */}
         <div
           onClick={() => setFilter(filter === "no_schedule" ? "all" : "no_schedule")}
           style={{
@@ -265,28 +436,28 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
               Start a new checklist to see it here
             </p>
             <Link
-              href="/checklists/new"
+              href="/work-centres"
               style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 24px", background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`, color: "white", borderRadius: "12px", textDecoration: "none", fontWeight: "600", fontSize: "14px", boxShadow: "0 4px 14px rgba(0, 87, 168, 0.25)", transition: "transform 0.15s, box-shadow 0.15s" }}
               onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0, 87, 168, 0.35)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(0, 87, 168, 0.25)"; }}
             >
-              Start a Checklist
+              Go to Work Centres
             </Link>
           </div>
         ) : (
           filteredChecklists.map((checklist, index) => {
             const display = getStatusDisplay(checklist);
             return (
-              <Link
+              <div
                 key={checklist.id}
-                href={`/checklists/${checklist.id}/run`}
+                onClick={() => handleCardClick(checklist)}
                 style={{
                   display: "block",
                   background: "white",
                   borderRadius: "16px",
                   border: `2px solid ${display.border}`,
                   padding: "20px",
-                  textDecoration: "none",
+                  cursor: "pointer",
                   transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
                   animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 30}ms backwards`,
                 }}
@@ -315,6 +486,15 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                         </svg>
                         {checklist.machine_name || "No machine"}
                       </span>
+                      {checklist.user_name && (
+                        <>
+                          <span style={{ color: "#d1d5db" }}>•</span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <Users style={{ width: "14px", height: "14px" }} />
+                            {checklist.user_name}
+                          </span>
+                        </>
+                      )}
                       <span style={{ color: "#d1d5db" }}>•</span>
                       <span style={{
                         fontSize: "12px",
@@ -346,11 +526,29 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
-              </Link>
+              </div>
             );
           })
         )}
       </div>
+
+      {/* Command Center Panel */}
+      <CommandCenterPanel
+        checklist={selectedChecklist}
+        isOpen={isPanelOpen}
+        onClose={() => {
+          setIsPanelOpen(false);
+          setSelectedChecklist(null);
+        }}
+        onAction={handlePanelAction}
+      />
+
+      <style jsx>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
     </div>
   );
 }
