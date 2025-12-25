@@ -37,8 +37,8 @@ interface ChecklistRun {
   status: string;
   started_at: string;
   completed_at: string | null;
-  checklist_templates: { name: string } | null;
-  users: { name: string } | null;
+  checklist_templates: { name: string } | { name: string }[] | null;
+  users: { name: string } | { name: string }[] | null;
 }
 
 interface MachineConcern {
@@ -51,8 +51,8 @@ interface MachineConcern {
   created_at: string;
   resolved_at: string | null;
   resolution_notes: string | null;
-  raised_by_user: { name: string } | null;
-  resolved_by_user: { name: string } | null;
+  raised_by_user: { name: string } | { name: string }[] | null;
+  resolved_by_user: { name: string } | { name: string }[] | null;
 }
 
 interface ChecklistSkip {
@@ -60,8 +60,8 @@ interface ChecklistSkip {
   reason: string;
   skip_date: string;
   created_at: string;
-  checklist_templates: { name: string } | null;
-  users: { name: string } | null;
+  checklist_templates: { name: string } | { name: string }[] | null;
+  users: { name: string } | { name: string }[] | null;
 }
 
 const BRAND_BLUE = '#0057A8';
@@ -562,10 +562,12 @@ export default function MachineProfilePage({ params }: { params: Promise<{ id: s
                       {/* Details */}
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: 0 }}>
-                          {run.checklist_templates?.name || "Unknown Checklist"}
+                          {Array.isArray(run.checklist_templates) 
+                            ? run.checklist_templates[0]?.name 
+                            : run.checklist_templates?.name || "Unknown Checklist"}
                         </p>
                         <p style={{ fontSize: "13px", color: "#6b7280", margin: "4px 0 0 0" }}>
-                          {run.users?.name || "Unknown"} • {getTimeAgo(run.started_at)}
+                          {Array.isArray(run.users) ? run.users[0]?.name : run.users?.name || "Unknown"} • {getTimeAgo(run.started_at)}
                         </p>
                       </div>
 
@@ -684,7 +686,7 @@ export default function MachineProfilePage({ params }: { params: Promise<{ id: s
                           <div style={{ display: "flex", alignItems: "center", gap: "12px", fontSize: "13px", color: "#6b7280" }}>
                             <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                               <User style={{ width: "14px", height: "14px" }} />
-                              {concern.raised_by_user?.name || "Unknown"}
+                              {Array.isArray(concern.raised_by_user) ? concern.raised_by_user[0]?.name : concern.raised_by_user?.name || "Unknown"}
                             </span>
                             <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                               <Calendar style={{ width: "14px", height: "14px" }} />
@@ -702,7 +704,7 @@ export default function MachineProfilePage({ params }: { params: Promise<{ id: s
                               border: "1px solid #bbf7d0",
                             }}>
                               <p style={{ fontSize: "13px", fontWeight: "600", color: "#166534", margin: "0 0 4px 0" }}>
-                                ✅ Resolved by {concern.resolved_by_user?.name || "Unknown"}
+                                ✅ Resolved by {Array.isArray(concern.resolved_by_user) ? concern.resolved_by_user[0]?.name : concern.resolved_by_user?.name || "Unknown"}
                               </p>
                               <p style={{ fontSize: "13px", color: "#166534", margin: 0 }}>
                                 {concern.resolution_notes}
@@ -782,13 +784,13 @@ export default function MachineProfilePage({ params }: { params: Promise<{ id: s
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: "15px", fontWeight: "600", color: "#111827", margin: "0 0 4px 0" }}>
-                        {skip.checklist_templates?.name || "Unknown Checklist"}
+                        {Array.isArray(skip.checklist_templates) ? skip.checklist_templates[0]?.name : skip.checklist_templates?.name || "Unknown Checklist"}
                       </p>
                       <p style={{ fontSize: "14px", color: "#6b7280", margin: "0 0 8px 0" }}>
                         &quot;{skip.reason}&quot;
                       </p>
                       <p style={{ fontSize: "13px", color: "#9ca3af", margin: 0 }}>
-                        Skipped by {skip.users?.name || "Unknown"} • {formatDate(skip.skip_date)}
+                        Skipped by {Array.isArray(skip.users) ? skip.users[0]?.name : skip.users?.name || "Unknown"} • {formatDate(skip.skip_date)}
                       </p>
                     </div>
                   </div>
