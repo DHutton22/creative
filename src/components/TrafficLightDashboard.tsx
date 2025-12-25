@@ -14,8 +14,10 @@ interface ChecklistStatus {
   due_date: string | null;
   started_at: string;
   completed_at: string | null;
-  compliance_status: "on_time" | "due_soon" | "overdue" | "completed";
+  compliance_status: "on_time" | "due_soon" | "overdue" | "completed" | "active" | "aging" | "stale";
   days_overdue: number;
+  hours_open: number;
+  is_ad_hoc: boolean;
 }
 
 interface TrafficLightDashboardProps {
@@ -25,7 +27,7 @@ interface TrafficLightDashboardProps {
 const BRAND_BLUE = "#0057A8";
 
 const frequencyLabels: Record<ChecklistFrequency, string> = {
-  once: "Once",
+  once: "Ad-hoc",
   daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
@@ -36,7 +38,7 @@ const frequencyLabels: Record<ChecklistFrequency, string> = {
 export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDashboardProps) {
   const [checklists, setChecklists] = useState<ChecklistStatus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "on_time" | "due_soon" | "overdue">("all");
+  const [filter, setFilter] = useState<"all" | "scheduled" | "ad_hoc" | "needs_attention">("all");
 
   useEffect(() => {
     fetchChecklists();
@@ -56,157 +58,107 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
     setIsLoading(false);
   };
 
-  const getStatusColor = (compliance: string) => {
-    switch (compliance) {
-      case "on_time":
-      case "completed":
-        return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "🟢" };
-      case "due_soon":
-        return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡" };
-      case "overdue":
-        return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴" };
-      default:
-        return { bg: "#f3f4f6", border: "#9ca3af", text: "#374151", light: "⚪" };
-    }
-  };
-
-  const getDaysText = (days: number, due_date: string | null) => {
-    if (!due_date) return "No due date";
-    
-    const now = new Date();
-    const dueDate = new Date(due_date);
-    const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    
-    if (diff > 0) {
-      return `Due in ${diff} day${diff !== 1 ? "s" : ""}`;
-    } else if (diff === 0) {
-      return "Due today";
+  const getStatusDisplay = (checklist: ChecklistStatus) => {
+    if (checklist.is_ad_hoc) {
+      // Ad-hoc checklists - show based on how long they've been open
+      switch (checklist.compliance_status) {
+        case "active":
+          return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
+        case "aging":
+          return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡", label: "Open 4+ hrs" };
+        case "stale":
+          return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴", label: "Open 8+ hrs" };
+        default:
+          return { bg: "#dbeafe", border: "#3b82f6", text: "#1e40af", light: "🔵", label: "In Progress" };
+      }
     } else {
-      return `${Math.abs(diff)} day${diff !== -1 ? "s" : ""} overdue`;
+      // Scheduled checklists - show based on due date
+      switch (checklist.compliance_status) {
+        case "on_time":
+        case "completed":
+          return { bg: "#dcfce7", border: "#22c55e", text: "#166534", light: "🟢", label: "On Time" };
+        case "due_soon":
+          return { bg: "#fef3c7", border: "#f59e0b", text: "#92400e", light: "🟡", label: "Due Soon" };
+        case "overdue":
+          return { bg: "#fee2e2", border: "#ef4444", text: "#991b1b", light: "🔴", label: "Overdue" };
+        default:
+          return { bg: "#f3f4f6", border: "#9ca3af", text: "#374151", light: "⚪", label: "Unknown" };
+      }
     }
   };
 
-  const filteredChecklists = checklists.filter((c) => {
-    if (filter === "all") return c.status === "in_progress";
-    return c.compliance_status === filter && c.status === "in_progress";
+  const getStatusText = (checklist: ChecklistStatus) => {
+    if (checklist.is_ad_hoc) {
+      if (checklist.hours_open < 1) {
+        return "Just started";
+      } else if (checklist.hours_open < 4) {
+        return `Open ${checklist.hours_open}h`;
+      } else if (checklist.hours_open < 8) {
+        return `Open ${checklist.hours_open}h - needs completion`;
+      } else {
+        return `Open ${checklist.hours_open}h - please review`;
+      }
+    } else {
+      if (!checklist.due_date) return "No due date";
+      
+      const now = new Date();
+      const dueDate = new Date(checklist.due_date);
+      const diff = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diff > 0) {
+        return `Due in ${diff} day${diff !== 1 ? "s" : ""}`;
+      } else if (diff === 0) {
+        return "Due today";
+      } else {
+        return `${Math.abs(diff)} day${diff !== -1 ? "s" : ""} overdue`;
+      }
+    }
+  };
+
+  // Filter checklists
+  const inProgressChecklists = checklists.filter(c => c.status === "in_progress");
+  
+  const filteredChecklists = inProgressChecklists.filter((c) => {
+    if (filter === "all") return true;
+    if (filter === "scheduled") return !c.is_ad_hoc;
+    if (filter === "ad_hoc") return c.is_ad_hoc;
+    if (filter === "needs_attention") {
+      return c.compliance_status === "overdue" || 
+             c.compliance_status === "due_soon" || 
+             c.compliance_status === "aging" || 
+             c.compliance_status === "stale";
+    }
+    return true;
   });
 
+  // Stats
   const stats = {
-    onTime: checklists.filter((c) => c.compliance_status === "on_time" && c.status === "in_progress").length,
-    dueSoon: checklists.filter((c) => c.compliance_status === "due_soon" && c.status === "in_progress").length,
-    overdue: checklists.filter((c) => c.compliance_status === "overdue" && c.status === "in_progress").length,
+    // Scheduled stats
+    onTime: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "on_time").length,
+    dueSoon: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "due_soon").length,
+    overdue: inProgressChecklists.filter(c => !c.is_ad_hoc && c.compliance_status === "overdue").length,
+    // Ad-hoc stats
+    adHocActive: inProgressChecklists.filter(c => c.is_ad_hoc && c.compliance_status === "active").length,
+    adHocAging: inProgressChecklists.filter(c => c.is_ad_hoc && (c.compliance_status === "aging" || c.compliance_status === "stale")).length,
   };
+
+  const totalScheduled = stats.onTime + stats.dueSoon + stats.overdue;
+  const totalAdHoc = stats.adHocActive + stats.adHocAging;
+  const needsAttention = stats.dueSoon + stats.overdue + stats.adHocAging;
 
   if (isLoading) {
     return (
       <div>
         {/* Stats Skeleton */}
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-          gap: "16px", 
-          marginBottom: "24px",
-        }}>
-          {[1, 2, 3].map((i) => (
-            <div 
-              key={i} 
-              style={{ 
-                background: "white", 
-                borderRadius: "16px", 
-                padding: "24px", 
-                border: "2px solid #e2e8f0",
-              }}
-            >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} style={{ background: "white", borderRadius: "16px", padding: "24px", border: "2px solid #e2e8f0" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div style={{ 
-                  width: "40px", 
-                  height: "40px", 
-                  borderRadius: "50%",
-                  background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.5s ease-in-out infinite",
-                }} />
-                <div style={{ 
-                  width: "48px", 
-                  height: "40px", 
-                  borderRadius: "8px",
-                  background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.5s ease-in-out infinite",
-                }} />
+                <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+                <div style={{ width: "48px", height: "40px", borderRadius: "8px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
               </div>
-              <div style={{ 
-                width: "60%", 
-                height: "14px", 
-                borderRadius: "4px",
-                background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                backgroundSize: "200% 100%",
-                animation: "shimmer 1.5s ease-in-out infinite",
-                marginBottom: "8px",
-              }} />
-              <div style={{ 
-                width: "40%", 
-                height: "12px", 
-                borderRadius: "4px",
-                background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                backgroundSize: "200% 100%",
-                animation: "shimmer 1.5s ease-in-out infinite",
-              }} />
-            </div>
-          ))}
-        </div>
-        
-        {/* List Skeleton */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-          {[1, 2, 3].map((i) => (
-            <div 
-              key={i}
-              style={{
-                background: "white",
-                borderRadius: "16px",
-                padding: "20px",
-                border: "2px solid #e2e8f0",
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-              }}
-            >
-              <div style={{ 
-                width: "56px", 
-                height: "56px", 
-                borderRadius: "50%",
-                background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                backgroundSize: "200% 100%",
-                animation: "shimmer 1.5s ease-in-out infinite",
-                flexShrink: 0,
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ 
-                  width: "60%", 
-                  height: "16px", 
-                  borderRadius: "4px",
-                  background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.5s ease-in-out infinite",
-                  marginBottom: "8px",
-                }} />
-                <div style={{ 
-                  width: "40%", 
-                  height: "12px", 
-                  borderRadius: "4px",
-                  background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                  backgroundSize: "200% 100%",
-                  animation: "shimmer 1.5s ease-in-out infinite",
-                }} />
-              </div>
-              <div style={{ 
-                width: "100px", 
-                height: "32px", 
-                borderRadius: "9999px",
-                background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)",
-                backgroundSize: "200% 100%",
-                animation: "shimmer 1.5s ease-in-out infinite",
-              }} />
+              <div style={{ width: "60%", height: "14px", borderRadius: "4px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite", marginBottom: "8px" }} />
+              <div style={{ width: "40%", height: "12px", borderRadius: "4px", background: "linear-gradient(90deg, #f3f4f6 0%, #e5e7eb 50%, #f3f4f6 100%)", backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
             </div>
           ))}
         </div>
@@ -216,117 +168,152 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
 
   return (
     <div>
-      {/* Traffic Light Stats */}
-      <div style={{ 
-        display: "grid", 
-        gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", 
-        gap: "16px", 
-        marginBottom: "24px",
-      }}>
-        {[
-          { key: "on_time", emoji: "🟢", count: stats.onTime, label: "On Time", sublabel: "Ahead of schedule", borderColor: "#22c55e", textColor: "#166534" },
-          { key: "due_soon", emoji: "🟡", count: stats.dueSoon, label: "Due Soon", sublabel: `Within ${dueSoonThreshold} days`, borderColor: "#f59e0b", textColor: "#92400e" },
-          { key: "overdue", emoji: "🔴", count: stats.overdue, label: "Overdue", sublabel: "Past due date", borderColor: "#ef4444", textColor: "#991b1b" },
-        ].map((stat, index) => (
-          <div
-            key={stat.key}
-            onClick={() => setFilter(filter === stat.key as any ? "all" : stat.key as any)}
-            className="traffic-card"
-            style={{
-              background: filter === stat.key ? `linear-gradient(135deg, ${stat.borderColor}10 0%, ${stat.borderColor}20 100%)` : "white",
-              borderRadius: "16px",
-              padding: "24px",
-              border: `2px solid ${stat.borderColor}`,
-              cursor: "pointer",
-              transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-              animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 50}ms backwards`,
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-3px)";
-              e.currentTarget.style.boxShadow = `0 8px 24px ${stat.borderColor}30`;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "none";
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-              <span 
-                className="traffic-light"
-                style={{ 
-                  fontSize: "36px", 
-                  lineHeight: 1,
-                  transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
-                }}
-              >
-                {stat.emoji}
-              </span>
-              <span 
-                style={{ 
-                  fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
-                  fontSize: "36px", 
-                  fontWeight: "bold", 
-                  color: stat.borderColor,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {stat.count}
-              </span>
-            </div>
-            <p style={{ 
-              margin: 0, 
-              fontSize: "15px", 
-              fontWeight: "700", 
-              color: stat.textColor,
-              fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
-            }}>
-              {stat.label}
-            </p>
-            <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280", fontWeight: 500 }}>
-              {stat.sublabel}
-            </p>
+      {/* Summary Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "24px" }}>
+        {/* Needs Attention - Priority */}
+        <div
+          onClick={() => setFilter(filter === "needs_attention" ? "all" : "needs_attention")}
+          style={{
+            background: filter === "needs_attention" ? "linear-gradient(135deg, #fef2f220 0%, #fee2e240 100%)" : "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: `2px solid ${needsAttention > 0 ? "#ef4444" : "#22c55e"}`,
+            cursor: "pointer",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0ms backwards",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-3px)";
+            e.currentTarget.style.boxShadow = needsAttention > 0 ? "0 8px 24px rgba(239, 68, 68, 0.2)" : "0 8px 24px rgba(34, 197, 94, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>{needsAttention > 0 ? "⚠️" : "✅"}</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: needsAttention > 0 ? "#ef4444" : "#22c55e" }}>
+              {needsAttention}
+            </span>
           </div>
-        ))}
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: needsAttention > 0 ? "#991b1b" : "#166534" }}>
+            {needsAttention > 0 ? "Needs Attention" : "All Clear"}
+          </p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+            {needsAttention > 0 ? "Overdue or aging" : "No issues"}
+          </p>
+        </div>
+
+        {/* Scheduled Checklists */}
+        <div
+          onClick={() => setFilter(filter === "scheduled" ? "all" : "scheduled")}
+          style={{
+            background: filter === "scheduled" ? "linear-gradient(135deg, #dcfce720 0%, #22c55e20 100%)" : "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "2px solid #22c55e",
+            cursor: "pointer",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 50ms backwards",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-3px)";
+            e.currentTarget.style.boxShadow = "0 8px 24px rgba(34, 197, 94, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>📅</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#22c55e" }}>
+              {totalScheduled}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#166534" }}>Scheduled</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+            {stats.overdue > 0 ? `${stats.overdue} overdue` : stats.dueSoon > 0 ? `${stats.dueSoon} due soon` : "On track"}
+          </p>
+        </div>
+
+        {/* Ad-hoc Checklists */}
+        <div
+          onClick={() => setFilter(filter === "ad_hoc" ? "all" : "ad_hoc")}
+          style={{
+            background: filter === "ad_hoc" ? "linear-gradient(135deg, #dbeafe20 0%, #3b82f620 100%)" : "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "2px solid #3b82f6",
+            cursor: "pointer",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 100ms backwards",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-3px)";
+            e.currentTarget.style.boxShadow = "0 8px 24px rgba(59, 130, 246, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>🔵</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#3b82f6" }}>
+              {totalAdHoc}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#1e40af" }}>Ad-hoc</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+            {stats.adHocAging > 0 ? `${stats.adHocAging} need completion` : "In progress"}
+          </p>
+        </div>
+
+        {/* Total In Progress */}
+        <div
+          onClick={() => setFilter("all")}
+          style={{
+            background: filter === "all" ? "linear-gradient(135deg, #f3f4f620 0%, #e5e7eb40 100%)" : "white",
+            borderRadius: "16px",
+            padding: "24px",
+            border: "2px solid #9ca3af",
+            cursor: "pointer",
+            transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+            animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-3px)";
+            e.currentTarget.style.boxShadow = "0 8px 24px rgba(156, 163, 175, 0.2)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "none";
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <span style={{ fontSize: "32px" }}>📋</span>
+            <span style={{ fontFamily: 'var(--font-display)', fontSize: "36px", fontWeight: "bold", color: "#374151" }}>
+              {inProgressChecklists.length}
+            </span>
+          </div>
+          <p style={{ margin: 0, fontSize: "15px", fontWeight: "700", color: "#374151" }}>Total Open</p>
+          <p style={{ margin: "4px 0 0 0", fontSize: "12px", color: "#6b7280" }}>All in progress</p>
+        </div>
       </div>
 
       {/* Filter Info */}
       {filter !== "all" && (
-        <div 
-          style={{ 
-            marginBottom: "16px", 
-            padding: "14px 18px", 
-            background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", 
-            borderRadius: "12px", 
-            display: "flex", 
-            alignItems: "center", 
-            justifyContent: "space-between",
-            animation: "fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-          }}
-        >
+        <div style={{ marginBottom: "16px", padding: "14px 18px", background: "linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)", borderRadius: "12px", display: "flex", alignItems: "center", justifyContent: "space-between", animation: "fadeInUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)" }}>
           <span style={{ fontSize: "14px", color: "#1e40af", fontWeight: 500 }}>
-            Showing <strong>{filter.replace("_", " ")}</strong> checklists only
+            Showing <strong>{filter === "scheduled" ? "scheduled" : filter === "ad_hoc" ? "ad-hoc" : "needs attention"}</strong> checklists
           </span>
           <button
             onClick={() => setFilter("all")}
-            style={{ 
-              padding: "8px 16px", 
-              background: "white", 
-              border: "1px solid #bfdbfe", 
-              borderRadius: "8px", 
-              fontSize: "13px", 
-              cursor: "pointer", 
-              color: "#1e40af",
-              fontWeight: 600,
-              transition: "background 0.15s, border-color 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#dbeafe";
-              e.currentTarget.style.borderColor = "#93c5fd";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "white";
-              e.currentTarget.style.borderColor = "#bfdbfe";
-            }}
+            style={{ padding: "8px 16px", background: "white", border: "1px solid #bfdbfe", borderRadius: "8px", fontSize: "13px", cursor: "pointer", color: "#1e40af", fontWeight: 600, transition: "background 0.15s" }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "#dbeafe"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "white"; }}
           >
             Show All
           </button>
@@ -336,83 +323,32 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
       {/* Checklist List */}
       <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
         {filteredChecklists.length === 0 ? (
-          <div 
-            className="empty-state"
-            style={{ 
-              padding: "56px 24px", 
-              textAlign: "center", 
-              background: "white", 
-              borderRadius: "16px", 
-              border: "2px dashed #e2e8f0",
-              animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)",
-            }}
-          >
-            <div style={{
-              width: "64px",
-              height: "64px",
-              margin: "0 auto 20px",
-              background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)",
-              borderRadius: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              animation: "bounce 1s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s backwards",
-            }}>
+          <div style={{ padding: "56px 24px", textAlign: "center", background: "white", borderRadius: "16px", border: "2px dashed #e2e8f0", animation: "fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1)" }}>
+            <div style={{ width: "64px", height: "64px", margin: "0 auto 20px", background: "linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)", borderRadius: "16px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg style={{ width: "32px", height: "32px", color: "#9ca3af" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 style={{ 
-              fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
-              fontSize: "18px", 
-              fontWeight: "600", 
-              color: "#111827", 
-              margin: 0,
-              marginBottom: "8px",
-            }}>
-              {filter === "all" 
-                ? "No in-progress checklists"
-                : `No ${filter.replace("_", " ")} checklists`}
+            <h3 style={{ fontFamily: 'var(--font-display)', fontSize: "18px", fontWeight: "600", color: "#111827", margin: 0, marginBottom: "8px" }}>
+              {filter === "needs_attention" ? "All caught up!" : "No checklists in this category"}
             </h3>
             <p style={{ fontSize: "14px", color: "#6b7280", margin: "0 0 24px 0" }}>
-              {filter === "all" 
-                ? "Start a new checklist to track your machine compliance"
-                : "All clear in this category!"}
+              {filter === "needs_attention" 
+                ? "No overdue or aging checklists right now" 
+                : "Start a new checklist to see it here"}
             </p>
             <Link
               href="/checklists/new"
-              style={{ 
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "12px 24px", 
-                background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`, 
-                color: "white", 
-                borderRadius: "12px", 
-                textDecoration: "none", 
-                fontWeight: "600",
-                fontSize: "14px",
-                boxShadow: "0 4px 14px rgba(0, 87, 168, 0.25)",
-                transition: "transform 0.15s, box-shadow 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 6px 20px rgba(0, 87, 168, 0.35)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 4px 14px rgba(0, 87, 168, 0.25)";
-              }}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "12px 24px", background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`, color: "white", borderRadius: "12px", textDecoration: "none", fontWeight: "600", fontSize: "14px", boxShadow: "0 4px 14px rgba(0, 87, 168, 0.25)", transition: "transform 0.15s, box-shadow 0.15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 6px 20px rgba(0, 87, 168, 0.35)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.boxShadow = "0 4px 14px rgba(0, 87, 168, 0.25)"; }}
             >
-              <svg style={{ width: "18px", height: "18px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
               Start a Checklist
             </Link>
           </div>
         ) : (
           filteredChecklists.map((checklist, index) => {
-            const colors = getStatusColor(checklist.compliance_status);
+            const display = getStatusDisplay(checklist);
             return (
               <Link
                 key={checklist.id}
@@ -421,15 +357,15 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                   display: "block",
                   background: "white",
                   borderRadius: "16px",
-                  border: `2px solid ${colors.border}`,
+                  border: `2px solid ${display.border}`,
                   padding: "20px",
                   textDecoration: "none",
-                  transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
-                  animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${(index + 3) * 50}ms backwards`,
+                  transition: "transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s",
+                  animation: `fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) ${index * 30}ms backwards`,
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-3px)";
-                  e.currentTarget.style.boxShadow = `0 8px 24px ${colors.border}30`;
+                  e.currentTarget.style.boxShadow = `0 8px 24px ${display.border}30`;
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = "translateY(0)";
@@ -437,29 +373,12 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-                  {/* Traffic Light */}
-                  <div 
-                    className="traffic-light"
-                    style={{ 
-                      fontSize: "52px", 
-                      flexShrink: 0, 
-                      lineHeight: 1,
-                      transition: "transform 0.15s cubic-bezier(0.16, 1, 0.3, 1)",
-                    }}
-                  >
-                    {colors.light}
-                  </div>
+                  {/* Status Light */}
+                  <div style={{ fontSize: "48px", flexShrink: 0, lineHeight: 1 }}>{display.light}</div>
 
                   {/* Checklist Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ 
-                      fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
-                      fontSize: "17px", 
-                      fontWeight: "600", 
-                      color: "#111827", 
-                      margin: 0, 
-                      marginBottom: "6px",
-                    }}>
+                    <h3 style={{ fontFamily: 'var(--font-display)', fontSize: "17px", fontWeight: "600", color: "#111827", margin: 0, marginBottom: "6px" }}>
                       {checklist.template_name}
                     </h3>
                     <p style={{ fontSize: "14px", color: "#6b7280", margin: 0, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
@@ -469,51 +388,34 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
                         </svg>
                         {checklist.machine_name || "No machine"}
                       </span>
-                      {checklist.frequency && (
-                        <>
-                          <span style={{ color: "#d1d5db" }}>•</span>
-                          <span>{frequencyLabels[checklist.frequency]}</span>
-                        </>
-                      )}
+                      <span style={{ color: "#d1d5db" }}>•</span>
+                      <span style={{
+                        fontSize: "12px",
+                        fontWeight: "600",
+                        padding: "2px 8px",
+                        borderRadius: "9999px",
+                        background: checklist.is_ad_hoc ? "#dbeafe" : "#dcfce7",
+                        color: checklist.is_ad_hoc ? "#1e40af" : "#166534",
+                      }}>
+                        {frequencyLabels[checklist.frequency || "once"]}
+                      </span>
                     </p>
                   </div>
 
                   {/* Status Badge */}
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div
-                      style={{
-                        padding: "8px 18px",
-                        borderRadius: "9999px",
-                        background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.border}20 100%)`,
-                        border: `1px solid ${colors.border}`,
-                        marginBottom: "8px",
-                      }}
-                    >
-                      <span style={{ fontSize: "13px", fontWeight: "700", color: colors.text }}>
-                        {getDaysText(checklist.days_overdue, checklist.due_date)}
+                    <div style={{ padding: "8px 18px", borderRadius: "9999px", background: `linear-gradient(135deg, ${display.bg} 0%, ${display.border}20 100%)`, border: `1px solid ${display.border}`, marginBottom: "6px" }}>
+                      <span style={{ fontSize: "13px", fontWeight: "700", color: display.text }}>
+                        {getStatusText(checklist)}
                       </span>
                     </div>
-                    {checklist.due_date && (
-                      <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, fontWeight: 500 }}>
-                        Due: {new Date(checklist.due_date).toLocaleDateString()}
-                      </p>
-                    )}
+                    <p style={{ fontSize: "11px", color: "#9ca3af", margin: 0, fontWeight: 500 }}>
+                      Started: {new Date(checklist.started_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                    </p>
                   </div>
 
                   {/* Arrow */}
-                  <svg 
-                    style={{ 
-                      width: "20px", 
-                      height: "20px", 
-                      color: "#9ca3af",
-                      flexShrink: 0,
-                      transition: "transform 0.15s, color 0.15s",
-                    }} 
-                    fill="none" 
-                    viewBox="0 0 24 24" 
-                    stroke="currentColor" 
-                    strokeWidth={2}
-                  >
+                  <svg style={{ width: "20px", height: "20px", color: "#9ca3af", flexShrink: 0 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
@@ -525,4 +427,3 @@ export function TrafficLightDashboard({ dueSoonThreshold = 3 }: TrafficLightDash
     </div>
   );
 }
-

@@ -38,7 +38,7 @@ export async function GET() {
       `
       )
       .in("status", ["in_progress", "completed"])
-      .order("due_date", { ascending: true, nullsFirst: false });
+      .order("started_at", { ascending: false });
 
     if (error) {
       console.error("Error fetching checklists:", error);
@@ -48,12 +48,33 @@ export async function GET() {
     // Calculate compliance status for each checklist
     const now = new Date();
     const checklistsWithStatus = checklists.map((checklist: any) => {
+      const frequency = checklist.checklist_templates?.frequency || 'once';
+      const isAdHoc = frequency === 'once' || !checklist.due_date;
+      
       let compliance_status = "on_time";
       let days_overdue = 0;
+      let hours_open = 0;
 
       if (checklist.status === "completed") {
         compliance_status = "completed";
+      } else if (isAdHoc) {
+        // For ad-hoc checklists, track how long they've been open
+        const startedAt = new Date(checklist.started_at);
+        const diffMs = now.getTime() - startedAt.getTime();
+        hours_open = Math.floor(diffMs / (1000 * 60 * 60));
+        
+        if (hours_open >= 8) {
+          // Open for 8+ hours - something might be wrong
+          compliance_status = "stale";
+        } else if (hours_open >= 4) {
+          // Open for 4+ hours - might need attention
+          compliance_status = "aging";
+        } else {
+          // Recently started - all good
+          compliance_status = "active";
+        }
       } else if (checklist.due_date) {
+        // For scheduled checklists, use due date
         const dueDate = new Date(checklist.due_date);
         const diffTime = dueDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -73,13 +94,15 @@ export async function GET() {
         template_id: checklist.template_id,
         template_name: checklist.checklist_templates?.name || "Unknown",
         machine_name: checklist.machines?.name || null,
-        frequency: checklist.checklist_templates?.frequency || null,
+        frequency: frequency,
         status: checklist.status,
         due_date: checklist.due_date,
         started_at: checklist.started_at,
         completed_at: checklist.completed_at,
         compliance_status,
         days_overdue,
+        hours_open,
+        is_ad_hoc: isAdHoc,
       };
     });
 
@@ -92,3 +115,4 @@ export async function GET() {
     );
   }
 }
+

@@ -30,7 +30,7 @@ export default function DashboardPage() {
               letterSpacing: "-0.02em",
             }}
           >
-            Checklist Compliance Dashboard
+            Checklist Dashboard
           </h1>
           <p 
             style={{ 
@@ -40,7 +40,7 @@ export default function DashboardPage() {
               fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
             }}
           >
-            Traffic light system for quick status overview
+            Track all in-progress checklists at a glance
           </p>
         </div>
         <div style={{ display: "flex", gap: "12px" }}>
@@ -135,7 +135,7 @@ export default function DashboardPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             <h3 
               style={{ 
                 fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
@@ -146,7 +146,7 @@ export default function DashboardPage() {
                 marginBottom: "12px",
               }}
             >
-              Understanding the Traffic Light System
+              How the Status System Works
             </h3>
             <div 
               style={{ 
@@ -158,52 +158,46 @@ export default function DashboardPage() {
               }}
             >
               <div style={{ 
-                display: "flex", 
-                alignItems: "flex-start", 
-                gap: "10px",
-                padding: "12px",
+                padding: "14px",
                 background: "rgba(255, 255, 255, 0.7)",
                 borderRadius: "10px",
               }}>
-                <span style={{ fontSize: "20px", lineHeight: 1 }}>🟢</span>
-                <div>
-                  <strong style={{ color: "#166534" }}>Green (On Time)</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#6b7280" }}>
-                    Checklist is ahead of schedule or has more than 3 days remaining
-                  </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "20px" }}>🔵</span>
+                  <strong style={{ color: "#1e40af" }}>Ad-hoc Checklists</strong>
                 </div>
+                <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+                  For operators starting a machine. Tracks how long the checklist has been open. 
+                  Yellow after 4hrs, red after 8hrs.
+                </p>
               </div>
               <div style={{ 
-                display: "flex", 
-                alignItems: "flex-start", 
-                gap: "10px",
-                padding: "12px",
+                padding: "14px",
                 background: "rgba(255, 255, 255, 0.7)",
                 borderRadius: "10px",
               }}>
-                <span style={{ fontSize: "20px", lineHeight: 1 }}>🟡</span>
-                <div>
-                  <strong style={{ color: "#92400e" }}>Amber (Due Soon)</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#6b7280" }}>
-                    Checklist is due within the next 3 days - action needed soon
-                  </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "20px" }}>📅</span>
+                  <strong style={{ color: "#166534" }}>Scheduled Checklists</strong>
                 </div>
+                <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+                  For regular inspections (daily, weekly, etc). Traffic light shows 🟢 on time, 
+                  🟡 due soon, 🔴 overdue.
+                </p>
               </div>
               <div style={{ 
-                display: "flex", 
-                alignItems: "flex-start", 
-                gap: "10px",
-                padding: "12px",
+                padding: "14px",
                 background: "rgba(255, 255, 255, 0.7)",
                 borderRadius: "10px",
               }}>
-                <span style={{ fontSize: "20px", lineHeight: 1 }}>🔴</span>
-                <div>
-                  <strong style={{ color: "#991b1b" }}>Red (Overdue)</strong>
-                  <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#6b7280" }}>
-                    Checklist has passed its due date - immediate action required
-                  </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
+                  <span style={{ fontSize: "20px" }}>⚠️</span>
+                  <strong style={{ color: "#991b1b" }}>Needs Attention</strong>
                 </div>
+                <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+                  Checklists that are overdue (scheduled) or have been open too long (ad-hoc). 
+                  Review these first!
+                </p>
               </div>
             </div>
           </div>
@@ -215,4 +209,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
