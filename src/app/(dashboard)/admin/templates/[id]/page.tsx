@@ -3,7 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { ChecklistTemplate, ChecklistSection, ChecklistItem, ChecklistItemType, ChecklistDefinition } from "@/types/database";
+import type { ChecklistTemplate, ChecklistSection, ChecklistItem, ChecklistItemType, ChecklistDefinition, ChecklistFrequency } from "@/types/database";
 import Link from "next/link";
 import { v4 as uuidv4 } from "uuid";
 
@@ -34,6 +34,15 @@ const statusOptions = [
   { value: "deprecated", label: "Deprecated" },
 ];
 
+const frequencyOptions = [
+  { value: "once", label: "No Schedule (Ad-hoc)" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "annually", label: "Annually" },
+];
+
 const itemTypeOptions = [
   { value: "yes_no", label: "Yes/No" },
   { value: "numeric", label: "Numeric Value" },
@@ -56,7 +65,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
   const [error, setError] = useState("");
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
-  const [form, setForm] = useState({ name: "", type: "pre_run", machine_id: "", status: "draft" });
+  const [form, setForm] = useState({ name: "", type: "pre_run", machine_id: "", status: "draft", frequency: "once" });
   const [sections, setSections] = useState<ChecklistSection[]>([]);
 
   const supabase = createClient();
@@ -87,6 +96,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
       type: typedTemplateData.type,
       machine_id: typedTemplateData.machine_id || "",
       status: typedTemplateData.status,
+      frequency: typedTemplateData.frequency || "once",
     });
 
     setSections(typedTemplateData.json_definition?.sections || []);
@@ -148,6 +158,7 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
       type: form.type as ChecklistTemplate["type"],
       machine_id: form.machine_id || null,
       status: form.status as ChecklistTemplate["status"],
+      frequency: form.frequency as ChecklistFrequency,
       json_definition: jsonDefinition,
     }).eq("id", resolvedParams.id);
 
@@ -210,6 +221,18 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                   <option value="">All Machines (Generic)</option>
                   {machines.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '6px' }}>Schedule Frequency</label>
+                <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', background: 'white' }}>
+                  {frequencyOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                </select>
+                <p style={{ fontSize: '12px', color: '#6b7280', margin: '6px 0 0 0' }}>
+                  {form.frequency === 'once' 
+                    ? '🔵 Operators run this checklist when needed — no due dates'
+                    : '📅 This checklist will have due dates on the dashboard'
+                  }
+                </p>
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', color: '#374151', marginBottom: '6px' }}>Status</label>
