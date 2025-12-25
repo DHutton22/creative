@@ -695,86 +695,95 @@ export function CameraCapture({
 
       {/* Show captured/uploaded image */}
       {mode === "idle" && capturedImage && (
-        <div style={{ position: "relative" }}>
-          <img
-            src={capturedImage}
-            alt="Captured"
-            style={{
-              width: "100%",
-              maxHeight: "300px",
-              objectFit: "cover",
-              borderRadius: "16px",
-              border: "2px solid #22c55e",
-            }}
-          />
-          <div style={{
-            position: "absolute",
-            top: "12px",
-            left: "12px",
-            padding: "6px 12px",
-            background: "#22c55e",
-            color: "white",
-            borderRadius: "8px",
-            fontSize: "12px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}>
-            <svg style={{ width: "14px", height: "14px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Photo Added
-          </div>
-          <button
-            onClick={removeImage}
-            style={{
+        <div>
+          {/* Image preview */}
+          <div style={{ position: "relative", marginBottom: "12px" }}>
+            <img
+              src={capturedImage}
+              alt="Captured"
+              style={{
+                width: "100%",
+                maxHeight: "280px",
+                objectFit: "cover",
+                borderRadius: "16px",
+                border: "2px solid #22c55e",
+              }}
+            />
+            <div style={{
               position: "absolute",
               top: "12px",
-              right: "12px",
-              width: "36px",
-              height: "36px",
-              background: "#ef4444",
-              border: "none",
-              borderRadius: "50%",
+              left: "12px",
+              padding: "6px 12px",
+              background: "#22c55e",
               color: "white",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 2px 8px rgba(239, 68, 68, 0.4)",
-            }}
-          >
-            <svg style={{ width: "18px", height: "18px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-          
-          {/* Retake option */}
-          <button
-            onClick={() => startCamera(selectedCameraId)}
-            style={{
-              position: "absolute",
-              bottom: "12px",
-              right: "12px",
-              padding: "8px 16px",
-              background: "rgba(0,0,0,0.6)",
-              border: "none",
               borderRadius: "8px",
-              color: "white",
-              fontSize: "13px",
-              fontWeight: "500",
-              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "600",
               display: "flex",
               alignItems: "center",
               gap: "6px",
-            }}
-          >
-            <svg style={{ width: "14px", height: "14px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            </svg>
-            Retake
-          </button>
+            }}>
+              <svg style={{ width: "14px", height: "14px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              Photo Added
+            </div>
+          </div>
+          
+          {/* Action buttons */}
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              onClick={() => {
+                setCapturedImage(null);
+                onCapture("");
+                startCamera(selectedCameraId);
+              }}
+              style={{
+                flex: 1,
+                padding: "12px 16px",
+                background: `linear-gradient(135deg, ${BRAND_BLUE} 0%, #003d75 100%)`,
+                border: "none",
+                borderRadius: "10px",
+                color: "white",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                boxShadow: "0 4px 12px rgba(0, 87, 168, 0.25)",
+              }}
+            >
+              <svg style={{ width: "18px", height: "18px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Change Photo
+            </button>
+            <button
+              onClick={removeImage}
+              style={{
+                padding: "12px 16px",
+                background: "white",
+                border: "2px solid #fee2e2",
+                borderRadius: "10px",
+                color: "#dc2626",
+                fontSize: "14px",
+                fontWeight: "500",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+              }}
+            >
+              <svg style={{ width: "18px", height: "18px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Remove
+            </button>
+          </div>
         </div>
       )}
 
