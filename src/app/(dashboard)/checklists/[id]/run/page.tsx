@@ -94,6 +94,15 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
+  
+  // Concern modal state
+  const [concernItemId, setConcernItemId] = useState<string | null>(null);
+  const [concernItemLabel, setConcernItemLabel] = useState<string>("");
+  const [concernDescription, setConcernDescription] = useState("");
+  const [concernSeverity, setConcernSeverity] = useState<"low" | "medium" | "high" | "critical">("medium");
+  const [concernPhotoUrl, setConcernPhotoUrl] = useState<string | null>(null);
+  const [isSubmittingConcern, setIsSubmittingConcern] = useState(false);
+  const [showConcernCamera, setShowConcernCamera] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -243,6 +252,73 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     setCommentingSectionId(null);
     setCommentingItemId(null);
     setCommentText("");
+  };
+
+  // Raise Concern handlers
+  const handleRaiseConcern = (itemId: string, itemLabel: string) => {
+    setConcernItemId(itemId);
+    setConcernItemLabel(itemLabel);
+    setConcernDescription("");
+    setConcernSeverity("medium");
+    setConcernPhotoUrl(null);
+    setShowConcernCamera(false);
+  };
+
+  const handleSubmitConcern = async () => {
+    if (!concernItemId || !concernDescription.trim() || !run || !machine) return;
+    setIsSubmittingConcern(true);
+
+    try {
+      // Insert concern into database
+      const { error } = await supabase.from("machine_concerns").insert({
+        machine_id: machine.id,
+        checklist_run_id: run.id,
+        checklist_item_id: concernItemId,
+        checklist_item_name: concernItemLabel,
+        raised_by: user?.id,
+        severity: concernSeverity,
+        description: concernDescription,
+        photo_url: concernPhotoUrl,
+        status: "open",
+      });
+
+      if (error) {
+        console.error("Error submitting concern:", error);
+        // Show error but don't block - table might not exist yet
+        if (error.code === "42P01") {
+          alert("Concern feature not yet enabled. Please run the command-center-tables.sql migration.");
+        }
+      } else {
+        // Log activity
+        try {
+          await supabase.from("activity_log").insert({
+            user_id: user?.id,
+            action_type: "concern_raised",
+            entity_type: "machine_concern",
+            entity_id: machine.id,
+            machine_id: machine.id,
+            metadata: { severity: concernSeverity, item: concernItemLabel },
+          });
+        } catch (e) {
+          // Activity log might not exist
+        }
+      }
+
+      // Close modal
+      setConcernItemId(null);
+      setConcernItemLabel("");
+      setConcernDescription("");
+      setConcernPhotoUrl(null);
+    } catch (err) {
+      console.error("Error submitting concern:", err);
+    }
+
+    setIsSubmittingConcern(false);
+  };
+
+  const handleConcernPhotoCapture = (photoUrl: string) => {
+    setConcernPhotoUrl(photoUrl);
+    setShowConcernCamera(false);
   };
 
   const handleComplete = async () => {
@@ -630,6 +706,22 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                               </button>
+                              <button
+                                onClick={() => handleRaiseConcern(item.id, item.label || item.question || '')}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #fca5a5',
+                                  background: '#fef2f2',
+                                  color: '#dc2626',
+                                  cursor: 'pointer',
+                                }}
+                                title="Raise concern"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              </button>
                             </>
                           )}
                         </div>
@@ -709,6 +801,22 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                               </button>
+                              <button
+                                onClick={() => handleRaiseConcern(item.id, item.label || item.question || '')}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #fca5a5',
+                                  background: '#fef2f2',
+                                  color: '#dc2626',
+                                  cursor: 'pointer',
+                                }}
+                                title="Raise concern"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                              </button>
                             </>
                           )}
                         </div>
@@ -772,6 +880,22 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                                 <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => handleRaiseConcern(item.id, item.label || item.question || '')}
+                                style={{
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #fca5a5',
+                                  background: '#fef2f2',
+                                  color: '#dc2626',
+                                  cursor: 'pointer',
+                                }}
+                                title="Raise concern"
+                              >
+                                <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                 </svg>
                               </button>
                             </>
@@ -995,6 +1119,225 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                 bucket="checklist-images"
                 path={`runs/${run?.id}`}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Raise Concern Modal */}
+      {concernItemId && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 50,
+          padding: '20px',
+        }}>
+          <div style={{ ...cardStyle, width: '100%', maxWidth: '480px', padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '12px',
+                background: '#fef2f2',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <svg style={{ width: '24px', height: '24px', color: '#dc2626' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>Raise a Concern</h3>
+                <p style={{ fontSize: '13px', color: '#6b7280', margin: '4px 0 0 0' }}>
+                  Re: {concernItemLabel}
+                </p>
+              </div>
+            </div>
+
+            {/* Severity Selection */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                Severity Level
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                {[
+                  { value: 'low', label: 'Low', color: '#22c55e', bg: '#dcfce7' },
+                  { value: 'medium', label: 'Medium', color: '#f59e0b', bg: '#fef3c7' },
+                  { value: 'high', label: 'High', color: '#f97316', bg: '#ffedd5' },
+                  { value: 'critical', label: 'Critical', color: '#dc2626', bg: '#fef2f2' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setConcernSeverity(option.value as typeof concernSeverity)}
+                    style={{
+                      padding: '10px 8px',
+                      borderRadius: '8px',
+                      border: concernSeverity === option.value ? `2px solid ${option.color}` : '1px solid #e2e8f0',
+                      background: concernSeverity === option.value ? option.bg : 'white',
+                      color: concernSeverity === option.value ? option.color : '#6b7280',
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                What&apos;s the issue? *
+              </label>
+              <textarea
+                value={concernDescription}
+                onChange={(e) => setConcernDescription(e.target.value)}
+                placeholder="Describe what you've observed..."
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  minHeight: '100px',
+                  resize: 'vertical',
+                }}
+              />
+            </div>
+
+            {/* Photo (Optional) */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+                Add Photo (Optional)
+              </label>
+              {!showConcernCamera && !concernPhotoUrl && (
+                <button
+                  onClick={() => setShowConcernCamera(true)}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    borderRadius: '8px',
+                    border: '2px dashed #e2e8f0',
+                    background: '#f8fafc',
+                    color: '#64748b',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <svg style={{ width: '20px', height: '20px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Take Photo
+                </button>
+              )}
+              {showConcernCamera && (
+                <div style={{ borderRadius: '8px', overflow: 'hidden' }}>
+                  <CameraCapture
+                    onCapture={handleConcernPhotoCapture}
+                    bucket="checklist-images"
+                    path={`concerns/${machine?.id}`}
+                  />
+                </div>
+              )}
+              {concernPhotoUrl && !showConcernCamera && (
+                <div style={{ position: 'relative' }}>
+                  <img
+                    src={concernPhotoUrl}
+                    alt="Concern"
+                    style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px' }}
+                  />
+                  <button
+                    onClick={() => { setConcernPhotoUrl(null); }}
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      background: 'rgba(0,0,0,0.6)',
+                      border: 'none',
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  setConcernItemId(null);
+                  setConcernItemLabel('');
+                  setConcernDescription('');
+                  setConcernPhotoUrl(null);
+                  setShowConcernCamera(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  background: 'white',
+                  color: '#374151',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitConcern}
+                disabled={!concernDescription.trim() || isSubmittingConcern}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  background: concernDescription.trim() ? '#dc2626' : '#fca5a5',
+                  color: 'white',
+                  fontWeight: '600',
+                  fontSize: '14px',
+                  cursor: concernDescription.trim() ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                {isSubmittingConcern ? 'Submitting...' : (
+                  <>
+                    <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    Submit Concern
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

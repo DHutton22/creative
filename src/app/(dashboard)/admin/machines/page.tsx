@@ -259,7 +259,7 @@ export default function AdminMachinesPage() {
               {filteredMachines.map((machine) => (
                 <tr key={machine.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
                   <td style={{ padding: "16px" }}>
-                    <Link href={`/machines/${machine.id}`} style={{ textDecoration: "none" }}>
+                    <Link href={`/admin/machines/${machine.id}`} style={{ textDecoration: "none" }}>
                       <p style={{ fontWeight: "500", color: "#111827", margin: 0 }}>{machine.name}</p>
                       <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0 0" }}>
                         {[machine.manufacturer, machine.model].filter(Boolean).join(" ") || "No details"}
@@ -441,5 +441,6 @@ export default function AdminMachinesPage() {
     </div>
   );
 }
+
 
 
