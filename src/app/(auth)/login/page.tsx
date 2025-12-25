@@ -54,7 +54,7 @@ function AnimatedStat({
 }
 
 function LoginContent() {
-  const [email, setEmail] = useState("");
+  const [loginId, setLoginId] = useState(""); // Can be email or username
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -75,13 +75,21 @@ function LoginContent() {
     setIsLoading(true);
 
     try {
+      // If loginId doesn't contain @, treat it as a username and append internal domain
+      const email = loginId.includes('@') ? loginId : `${loginId.toLowerCase()}@cc.internal`;
+      
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        setError(error.message);
+        // Make error message more friendly for usernames
+        if (error.message === "Invalid login credentials") {
+          setError("Invalid username/email or password");
+        } else {
+          setError(error.message);
+        }
       } else {
         router.push(redirectTo);
         router.refresh();
@@ -321,7 +329,7 @@ function LoginContent() {
 
             <div style={{ marginBottom: '20px' }}>
               <label 
-                htmlFor="email" 
+                htmlFor="loginId" 
                 style={{ 
                   display: 'block', 
                   fontSize: '14px', 
@@ -330,13 +338,13 @@ function LoginContent() {
                   marginBottom: '8px',
                 }}
               >
-                Email address
+                Username or Email
               </label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="loginId"
+                type="text"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '14px 16px',
@@ -358,9 +366,9 @@ function LoginContent() {
                   e.target.style.boxShadow = 'none';
                   e.target.style.background = '#fafafa';
                 }}
-                placeholder="you@company.com"
+                placeholder="jsmith or you@company.com"
                 required
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 

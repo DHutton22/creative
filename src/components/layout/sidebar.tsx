@@ -19,7 +19,6 @@ const adminItems = [
   { href: "/admin/machines", label: "Machines", icon: "machine" },
   { href: "/admin/templates", label: "Checklist Templates", icon: "template" },
   { href: "/admin/users", label: "Users", icon: "users" },
-  { href: "/reports", label: "Reports & Activity", icon: "chart" },
 ];
 
 interface SidebarProps {

@@ -55,11 +55,20 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, role, department, sendEmail } = body;
+    const { email, password, name, role, department, sendEmail, username, isInternalUser } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json(
         { error: "Email, password, and name are required" },
+        { status: 400 }
+      );
+    }
+
+    // For internal users, validate username
+    const isInternal = email.endsWith('@cc.internal');
+    if (isInternal && !username) {
+      return NextResponse.json(
+        { error: "Username is required for internal users" },
         { status: 400 }
       );
     }
@@ -69,7 +78,7 @@ export async function POST(request: NextRequest) {
       email,
       password,
       email_confirm: true, // Auto-confirm email
-      user_metadata: { name },
+      user_metadata: { name, username: isInternal ? username : null },
     });
 
     if (authError) {
@@ -86,6 +95,7 @@ export async function POST(request: NextRequest) {
       .upsert({
         id: authData.user.id,
         email,
+        username: isInternal ? username : null,
         name,
         role: role || "operator",
         department: department || null,
@@ -98,7 +108,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Send welcome email with login instructions if requested
-    if (sendEmail) {
+    if (sendEmail && !isInternal) {
       // Use Supabase's built-in password reset to send credentials
       // This sends a "reset password" email that user can use to set their password
       // Or we could send a custom email with the password
@@ -108,17 +118,28 @@ export async function POST(request: NextRequest) {
       // In production, you'd integrate with an email service like Resend, SendGrid, etc.
     }
 
+    const loginInfo = isInternal 
+      ? `Username: ${username}`
+      : `Email: ${email}`;
+
     return NextResponse.json({
       user: {
         id: authData.user.id,
         email,
+        username: isInternal ? username : null,
         name,
         role: role || "operator",
         department,
       },
-      message: sendEmail
-        ? "User created. Login instructions should be sent to their email."
-        : "User created successfully.",
+      message: isInternal
+        ? `User created! Login with username: ${username}`
+        : sendEmail
+          ? "User created. Login instructions should be sent to their email."
+          : "User created successfully.",
+      credentials: {
+        login: isInternal ? username : email,
+        isInternalUser: isInternal,
+      }
     });
   } catch (error) {
     console.error("Error creating user:", error);
@@ -195,5 +216,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
   }
 }
+
 
 

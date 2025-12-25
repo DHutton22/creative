@@ -7,6 +7,7 @@ import type { UserRole } from "@/types/database";
 interface User {
   id: string;
   email: string;
+  username: string | null;
   name: string;
   role: UserRole;
   department: string | null;
@@ -74,11 +75,13 @@ export default function AdminUsersPage() {
   // Form state
   const [formData, setFormData] = useState({
     email: "",
+    username: "",
     password: "",
     name: "",
     role: "operator" as UserRole,
     department: "",
     sendEmail: false,
+    isInternalUser: true, // Default to internal user (no email required)
   });
 
   const isAdmin = hasRole("admin");
@@ -108,11 +111,19 @@ export default function AdminUsersPage() {
     setError("");
     setSuccess("");
 
+    // For internal users, generate an internal email from username
+    const payload = {
+      ...formData,
+      email: formData.isInternalUser 
+        ? `${formData.username.toLowerCase().replace(/\s+/g, '.')}@cc.internal` 
+        : formData.email,
+    };
+
     try {
       const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
 
@@ -123,11 +134,13 @@ export default function AdminUsersPage() {
         setShowCreateModal(false);
         setFormData({
           email: "",
+          username: "",
           password: "",
           name: "",
           role: "operator",
           department: "",
           sendEmail: false,
+          isInternalUser: true,
         });
         fetchUsers();
       }
@@ -368,7 +381,27 @@ export default function AdminUsersPage() {
                             <span style={{ fontSize: "12px", color: "#6b7280", marginLeft: "8px" }}>(You)</span>
                           )}
                         </p>
-                        <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0 0" }}>{user.email}</p>
+                        <p style={{ fontSize: "13px", color: "#6b7280", margin: "2px 0 0 0", display: "flex", alignItems: "center", gap: "4px" }}>
+                          {user.email?.endsWith('@cc.internal') ? (
+                            <>
+                              <span style={{ 
+                                display: "inline-flex", 
+                                alignItems: "center", 
+                                gap: "3px",
+                                background: "#f0fdf4", 
+                                color: "#166534",
+                                padding: "2px 6px",
+                                borderRadius: "4px",
+                                fontSize: "11px",
+                                fontWeight: "500",
+                              }}>
+                                🏭 {user.username || user.email.replace('@cc.internal', '')}
+                              </span>
+                            </>
+                          ) : (
+                            <>{user.email}</>
+                          )}
+                        </p>
                       </div>
                     </div>
                   </td>
@@ -496,6 +529,60 @@ export default function AdminUsersPage() {
             </div>
             <form onSubmit={handleCreate} style={{ padding: "20px" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                {/* User Type Toggle */}
+                <div style={{ 
+                  display: "flex", 
+                  background: "#f3f4f6", 
+                  borderRadius: "10px", 
+                  padding: "4px",
+                  gap: "4px",
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isInternalUser: true })}
+                    style={{
+                      flex: 1,
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      border: "none",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      background: formData.isInternalUser ? "white" : "transparent",
+                      color: formData.isInternalUser ? BRAND_BLUE : "#6b7280",
+                      boxShadow: formData.isInternalUser ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    🏭 Internal User
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, isInternalUser: false })}
+                    style={{
+                      flex: 1,
+                      padding: "10px 16px",
+                      borderRadius: "8px",
+                      border: "none",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      background: !formData.isInternalUser ? "white" : "transparent",
+                      color: !formData.isInternalUser ? BRAND_BLUE : "#6b7280",
+                      boxShadow: !formData.isInternalUser ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    ✉️ Email User
+                  </button>
+                </div>
+
+                <p style={{ fontSize: "13px", color: "#6b7280", margin: "-8px 0 0 0", padding: "0 4px" }}>
+                  {formData.isInternalUser 
+                    ? "Internal users log in with a username - no email required" 
+                    : "Email users receive login instructions via email"}
+                </p>
+
                 <div>
                   <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
                     Full Name *
@@ -510,19 +597,38 @@ export default function AdminUsersPage() {
                   />
                 </div>
 
-                <div>
-                  <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
-                    Email Address *
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    style={inputStyle}
-                    placeholder="john@company.com"
-                    required
-                  />
-                </div>
+                {formData.isInternalUser ? (
+                  <div>
+                    <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
+                      Username *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, '') })}
+                      style={inputStyle}
+                      placeholder="jsmith"
+                      required
+                    />
+                    <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "4px" }}>
+                      Lowercase letters, numbers, dots, and dashes only
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      style={inputStyle}
+                      placeholder="john@company.com"
+                      required
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "6px" }}>
@@ -587,18 +693,20 @@ export default function AdminUsersPage() {
                   />
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-                  <input
-                    type="checkbox"
-                    id="sendEmail"
-                    checked={formData.sendEmail}
-                    onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                    style={{ width: "18px", height: "18px", accentColor: BRAND_BLUE }}
-                  />
-                  <label htmlFor="sendEmail" style={{ fontSize: "14px", color: "#374151" }}>
-                    Send login instructions to user&apos;s email
-                  </label>
-                </div>
+                {!formData.isInternalUser && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+                    <input
+                      type="checkbox"
+                      id="sendEmail"
+                      checked={formData.sendEmail}
+                      onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                      style={{ width: "18px", height: "18px", accentColor: BRAND_BLUE }}
+                    />
+                    <label htmlFor="sendEmail" style={{ fontSize: "14px", color: "#374151" }}>
+                      Send login instructions to user&apos;s email
+                    </label>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px", paddingTop: "20px", borderTop: "1px solid #e2e8f0" }}>
