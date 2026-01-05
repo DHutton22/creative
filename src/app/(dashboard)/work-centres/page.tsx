@@ -60,7 +60,15 @@ export default function WorkCentresPage() {
     setError(null);
     
     try {
-      const response = await fetch("/api/work-centres");
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+      
+      const response = await fetch("/api/work-centres", {
+        signal: controller.signal,
+        cache: 'no-store', // Prevent stale cache on back navigation
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -71,17 +79,39 @@ export default function WorkCentresPage() {
       setWorkCentres(data.workCentres || []);
       setMachines(data.machines || []);
     } catch (err: any) {
-      console.error("Exception fetching data:", err);
-      setError(err.message || "Failed to load data");
+      if (err.name === 'AbortError') {
+        console.error("Fetch timed out");
+        setError("Request timed out. Please try again.");
+      } else {
+        console.error("Exception fetching data:", err);
+        setError(err.message || "Failed to load data");
+      }
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    let mounted = true;
+    let fallbackTimer: NodeJS.Timeout | null = null;
+    
+    // Fetch data when auth is ready
     if (!authLoading) {
       fetchData();
+    } else {
+      // Safety fallback: if auth takes too long, fetch anyway after 2s
+      fallbackTimer = setTimeout(() => {
+        if (mounted) {
+          console.log("Auth taking too long, fetching data anyway");
+          fetchData();
+        }
+      }, 2000);
     }
+    
+    return () => {
+      mounted = false;
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
   }, [authLoading, fetchData]);
 
   const getMachinesForWorkCentre = (workCentreId: string) => {
