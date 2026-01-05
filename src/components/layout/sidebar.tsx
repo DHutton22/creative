@@ -90,8 +90,9 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const isAdmin = hasRole(["admin", "supervisor"]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
+    await supabase.auth.signOut({ scope: 'global' });
+    // Hard redirect to clear any cached state
+    window.location.href = "/login";
   };
 
   const isActive = (href: string) => {

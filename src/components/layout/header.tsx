@@ -99,8 +99,9 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
   const supabase = createClient();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
+    await supabase.auth.signOut({ scope: 'global' });
+    // Hard redirect to clear any cached state
+    window.location.href = "/login";
   };
 
   return (
