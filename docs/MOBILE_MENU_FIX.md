@@ -116,3 +116,4 @@ Consider using CSS custom properties (variables) for:
 - z-index values
 
 This would make the responsive behavior even more maintainable.
+

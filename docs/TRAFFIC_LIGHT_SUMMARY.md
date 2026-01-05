@@ -157,3 +157,4 @@ See full documentation: `/docs/TRAFFIC_LIGHT_DASHBOARD.md`
 **🎉 Your traffic light dashboard is ready to use!**
 
 Go to `/dashboard` to see it in action! 🚦
+

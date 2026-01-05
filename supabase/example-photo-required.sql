@@ -184,3 +184,4 @@ WHERE name = 'Your Existing Template Name'
 -- INSERT INTO checklist_templates (name, type, version, json_definition, ...)
 -- SELECT name, type, version + 1, updated_json, ...
 -- FROM checklist_templates WHERE id = 'template-id';
+

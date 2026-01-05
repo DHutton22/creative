@@ -243,3 +243,4 @@ Example:
 - [ ] GPS tagging
 - [ ] Timestamp overlays
 - [ ] Photo compression options
+

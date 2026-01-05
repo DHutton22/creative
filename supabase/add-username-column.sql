@@ -16,3 +16,4 @@ COMMENT ON COLUMN public.users.username IS 'Username for internal users who log 
 -- Create index for faster username lookups during login
 CREATE INDEX IF NOT EXISTS users_username_idx ON public.users (username) WHERE username IS NOT NULL;
 
+

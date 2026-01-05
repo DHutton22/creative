@@ -44,9 +44,13 @@ export async function updateSession(request: NextRequest) {
       }
     );
 
+    // Use getSession() instead of getUser() to avoid network call timeout
+    // getSession() reads from cookie locally - much faster for middleware
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    
+    const user = session?.user ?? null;
 
     // Protected routes - redirect to login if not authenticated
     const isAuthRoute = request.nextUrl.pathname.startsWith("/login") || 

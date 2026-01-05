@@ -21,3 +21,4 @@ ADD COLUMN IF NOT EXISTS photo_url TEXT;
 -- structure in checklist_templates. No schema change needed for that.
 
 COMMENT ON COLUMN checklist_answers.photo_url IS 'URL of the photo uploaded by the user when completing this checklist item';
+

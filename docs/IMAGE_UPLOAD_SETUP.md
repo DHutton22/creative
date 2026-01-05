@@ -169,3 +169,4 @@ checklist-images/
 - [ ] Image comparison (reference vs. uploaded)
 - [ ] Automatic image cleanup for old checklists
 - [ ] PDF export with embedded images
+
