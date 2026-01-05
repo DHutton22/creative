@@ -440,6 +440,10 @@ export default function EditTemplatePage({ params }: { params: Promise<{ id: str
                                 <input type="checkbox" checked={item.critical} onChange={(e) => updateItem(section.id, item.id, { critical: e.target.checked })} style={{ width: '16px', height: '16px' }} />
                                 Critical
                               </label>
+                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer', color: '#0057A8' }}>
+                                <input type="checkbox" checked={item.photoRequired || false} onChange={(e) => updateItem(section.id, item.id, { photoRequired: e.target.checked })} style={{ width: '16px', height: '16px' }} />
+                                📷 Requires Photo
+                              </label>
                               {item.type === "numeric" && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                   <input type="number" placeholder="Min" value={item.minValue || ""} onChange={(e) => updateItem(section.id, item.id, { minValue: Number(e.target.value) })} style={{ width: '70px', padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '13px' }} />
