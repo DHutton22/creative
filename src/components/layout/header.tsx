@@ -99,9 +99,17 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
   const supabase = createClient();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
-    // Hard redirect to clear any cached state
-    window.location.href = "/login";
+    try {
+      console.log("Signing out...");
+      await supabase.auth.signOut({ scope: 'global' });
+      console.log("Sign out complete, redirecting...");
+      // Hard redirect to clear any cached state
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Sign out error:", error);
+      // Force redirect anyway
+      window.location.href = "/login";
+    }
   };
 
   return (
@@ -275,8 +283,11 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
             {/* Sign out */}
             <div style={{ padding: "8px" }}>
               <button
-                onClick={() => {
-                  setIsOpen(false);
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log("Sign out clicked");
                   handleSignOut();
                 }}
                 style={{
@@ -294,6 +305,8 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
                   color: "#dc2626",
                   transition: "background 0.15s",
                   textAlign: "left",
+                  position: "relative",
+                  zIndex: 100,
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.background = "#fef2f2"}
                 onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
