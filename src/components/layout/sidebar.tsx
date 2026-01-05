@@ -90,8 +90,20 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const isAdmin = hasRole(["admin", "supervisor"]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut({ scope: 'global' });
-    // Hard redirect to clear any cached state
+    // Set a timeout - if signOut takes more than 2 seconds, redirect anyway
+    const timeoutId = setTimeout(() => {
+      window.location.href = "/login";
+    }, 2000);
+    
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Sign out error:", error);
+    }
+    
+    // Always redirect
     window.location.href = "/login";
   };
 

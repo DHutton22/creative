@@ -99,17 +99,25 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
   const supabase = createClient();
 
   const handleSignOut = async () => {
+    console.log("Signing out...");
+    
+    // Set a timeout - if signOut takes more than 2 seconds, redirect anyway
+    const timeoutId = setTimeout(() => {
+      console.log("Sign out timeout - forcing redirect");
+      window.location.href = "/login";
+    }, 2000);
+    
     try {
-      console.log("Signing out...");
       await supabase.auth.signOut({ scope: 'global' });
+      clearTimeout(timeoutId);
       console.log("Sign out complete, redirecting...");
-      // Hard redirect to clear any cached state
-      window.location.href = "/login";
     } catch (error) {
+      clearTimeout(timeoutId);
       console.error("Sign out error:", error);
-      // Force redirect anyway
-      window.location.href = "/login";
     }
+    
+    // Always redirect
+    window.location.href = "/login";
   };
 
   return (
