@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { ChecklistTemplate, ChecklistSection, ChecklistItem, ChecklistItemType, ChecklistDefinition, ChecklistFrequency } from "@/types/database";
@@ -10,6 +10,143 @@ import { v4 as uuidv4 } from "uuid";
 interface MachineOption {
   id: string;
   name: string;
+}
+
+// Reference Image Upload Component
+function ReferenceImageUpload({ 
+  currentUrl, 
+  onUpload, 
+  onRemove 
+}: { 
+  currentUrl?: string; 
+  onUpload: (url: string) => void; 
+  onRemove: () => void;
+}) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const supabase = createClient();
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `reference/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+      const { data, error } = await supabase.storage
+        .from("checklist-images")
+        .upload(fileName, file, { cacheControl: "3600", upsert: false });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("checklist-images")
+        .getPublicUrl(data.path);
+
+      onUpload(publicUrl);
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Failed to upload image");
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div style={{ marginTop: "8px" }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileSelect}
+        style={{ display: "none" }}
+      />
+      
+      {currentUrl ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <img 
+            src={currentUrl} 
+            alt="Reference" 
+            style={{ 
+              width: "48px", 
+              height: "48px", 
+              objectFit: "cover", 
+              borderRadius: "6px",
+              border: "2px solid #10b981"
+            }} 
+          />
+          <span style={{ fontSize: "12px", color: "#10b981", fontWeight: "500" }}>Reference image added</span>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              padding: "4px 8px",
+              fontSize: "12px",
+              background: "#f3f4f6",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              color: "#374151",
+            }}
+          >
+            Change
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            style={{
+              padding: "4px 8px",
+              fontSize: "12px",
+              background: "#fee2e2",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              color: "#dc2626",
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            padding: "6px 10px",
+            fontSize: "12px",
+            background: isUploading ? "#f3f4f6" : "#eff6ff",
+            border: "1px dashed #93c5fd",
+            borderRadius: "6px",
+            cursor: isUploading ? "not-allowed" : "pointer",
+            color: "#1d4ed8",
+            fontWeight: "500",
+          }}
+        >
+          <svg style={{ width: "14px", height: "14px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+          {isUploading ? "Uploading..." : "Add Reference Image"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 const cardStyle: React.CSSProperties = {
@@ -275,7 +412,7 @@ export default function NewTemplatePage() {
                                 {itemTypeOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                               </select>
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
                               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={item.required} onChange={(e) => updateItem(section.id, item.id, { required: e.target.checked })} style={{ width: '16px', height: '16px' }} />
                                 Required
@@ -293,6 +430,12 @@ export default function NewTemplatePage() {
                                 </div>
                               )}
                             </div>
+                            {/* Reference Image Upload */}
+                            <ReferenceImageUpload
+                              currentUrl={item.referenceImageUrl}
+                              onUpload={(url) => updateItem(section.id, item.id, { referenceImageUrl: url })}
+                              onRemove={() => updateItem(section.id, item.id, { referenceImageUrl: undefined })}
+                            />
                           </div>
                           <button type="button" onClick={() => deleteItem(section.id, item.id)} style={{ padding: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                             <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
