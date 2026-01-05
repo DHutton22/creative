@@ -1,26 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { AuthProvider } from "@/contexts/auth-context";
-import { TourProvider, useTour } from "@/contexts/tour-context";
+import { TourProvider } from "@/contexts/tour-context";
 import { ToastProvider } from "@/contexts/toast-context";
-import { OnboardingTour } from "@/components/OnboardingTour";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { isTourOpen, closeTour, completeTour, hasSeenTour, openTour } = useTour();
-
-  // Auto-open tour for first-time users after a short delay
-  useEffect(() => {
-    if (!hasSeenTour) {
-      const timer = setTimeout(() => {
-        openTour();
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [hasSeenTour, openTour]);
 
   return (
     <>
@@ -72,13 +60,6 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </div>
-
-      {/* Onboarding Tour Modal */}
-      <OnboardingTour 
-        isOpen={isTourOpen} 
-        onClose={closeTour} 
-        onComplete={completeTour}
-      />
     </>
   );
 }
