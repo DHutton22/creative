@@ -98,25 +98,22 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     console.log("Signing out...");
     
-    // Set a timeout - if signOut takes more than 2 seconds, redirect anyway
-    const timeoutId = setTimeout(() => {
-      console.log("Sign out timeout - forcing redirect");
-      window.location.href = "/login";
-    }, 2000);
+    // Fire signOut in background (don't await)
+    supabase.auth.signOut({ scope: 'global' }).catch(console.error);
     
-    try {
-      await supabase.auth.signOut({ scope: 'global' });
-      clearTimeout(timeoutId);
-      console.log("Sign out complete, redirecting...");
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error("Sign out error:", error);
-    }
+    // Clear all auth cookies manually
+    document.cookie.split(";").forEach((c) => {
+      const name = c.split("=")[0].trim();
+      if (name.includes("supabase") || name.includes("sb-")) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    });
     
-    // Always redirect
+    // Redirect immediately
+    console.log("Redirecting to login...");
     window.location.href = "/login";
   };
 

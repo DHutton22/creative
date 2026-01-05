@@ -89,21 +89,19 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
   const isAdmin = hasRole(["admin", "supervisor"]);
 
-  const handleSignOut = async () => {
-    // Set a timeout - if signOut takes more than 2 seconds, redirect anyway
-    const timeoutId = setTimeout(() => {
-      window.location.href = "/login";
-    }, 2000);
+  const handleSignOut = () => {
+    // Fire signOut in background (don't await)
+    supabase.auth.signOut({ scope: 'global' }).catch(console.error);
     
-    try {
-      await supabase.auth.signOut({ scope: 'global' });
-      clearTimeout(timeoutId);
-    } catch (error) {
-      clearTimeout(timeoutId);
-      console.error("Sign out error:", error);
-    }
+    // Clear all auth cookies manually
+    document.cookie.split(";").forEach((c) => {
+      const name = c.split("=")[0].trim();
+      if (name.includes("supabase") || name.includes("sb-")) {
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+      }
+    });
     
-    // Always redirect
+    // Redirect immediately
     window.location.href = "/login";
   };
 
