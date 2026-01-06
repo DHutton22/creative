@@ -13,6 +13,118 @@ interface DocSection {
 export default function TechnicalDocsPage() {
   const sections: DocSection[] = [
     {
+      title: "Account Setup & Handover",
+      icon: "📧",
+      content: (
+        <>
+          <div style={{ 
+            background: "#fef3c7", 
+            padding: "16px", 
+            borderRadius: "8px", 
+            marginBottom: "16px",
+            border: "1px solid #fcd34d" 
+          }}>
+            <strong>⚠️ Action Required:</strong>
+            <p style={{ margin: "8px 0 0 0" }}>
+              To complete the handover, Creative Composites needs to provide a single email address 
+              that will be used to manage all platform accounts.
+            </p>
+          </div>
+
+          <p>
+            All three platform accounts (Vercel, Supabase, and GitHub) will be transferred to 
+            Creative Composites ownership. This ensures you have full control over your system 
+            and data.
+          </p>
+
+          <div style={{ marginTop: "20px" }}>
+            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>Required: Admin Email Address</h4>
+            <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#6b7280" }}>
+              Please provide an email address that will be used to:
+            </p>
+            <ul style={{ margin: "0 0 16px 0", paddingLeft: "20px", fontSize: "14px" }}>
+              <li>Receive account invitations and login credentials</li>
+              <li>Receive billing notifications and invoices</li>
+              <li>Receive security alerts and system notifications</li>
+              <li>Act as the primary contact for all platforms</li>
+            </ul>
+            <div style={{ 
+              background: "#f0fdf4", 
+              padding: "12px 16px", 
+              borderRadius: "8px",
+              border: "1px solid #bbf7d0",
+              fontSize: "13px"
+            }}>
+              <strong>💡 Recommendation:</strong> Use a shared/team email like <code style={{ background: "#e2e8f0", padding: "2px 6px", borderRadius: "4px" }}>it@creativecomposites.co.uk</code> or 
+              <code style={{ background: "#e2e8f0", padding: "2px 6px", borderRadius: "4px", marginLeft: "4px" }}>admin@creativecomposites.co.uk</code> rather 
+              than a personal email. This ensures continuity if team members change.
+            </div>
+          </div>
+
+          <div style={{ marginTop: "24px" }}>
+            <h4 style={{ margin: "0 0 16px 0", color: "#111827" }}>What Will Be Set Up</h4>
+            
+            <div style={{ display: "grid", gap: "12px" }}>
+              <HandoverCard
+                platform="GitHub"
+                icon="🐙"
+                description="Source code repository"
+                action="A new repository will be created under your own GitHub account or organisation. You'll have full access to all code and version history."
+                whatYouGet={[
+                  "Full ownership of the source code",
+                  "Complete version history",
+                  "Ability to hire any developer to make changes",
+                ]}
+              />
+              <HandoverCard
+                platform="Vercel"
+                icon="▲"
+                description="Hosting & deployment"
+                action="The project will be transferred to a Vercel account under your email. Automatic deployments will continue to work from your GitHub."
+                whatYouGet={[
+                  "Control over the live website",
+                  "Access to deployment logs",
+                  "Ability to set custom domains",
+                  "Direct billing to your account",
+                ]}
+              />
+              <HandoverCard
+                platform="Supabase"
+                icon="⚡"
+                description="Database & authentication"
+                action="The Supabase project will be transferred to your account. All data remains intact during transfer."
+                whatYouGet={[
+                  "Full database access",
+                  "User management control",
+                  "Backup management",
+                  "Direct billing ($25/month Pro plan)",
+                ]}
+              />
+            </div>
+          </div>
+
+          <div style={{ 
+            marginTop: "24px",
+            padding: "16px",
+            background: "#f8fafc",
+            borderRadius: "8px",
+            border: "1px solid #e2e8f0"
+          }}>
+            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>After Handover</h4>
+            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+              Once all accounts are transferred, you will have complete ownership and control. 
+              The system will continue to work exactly as it does now. You can choose to:
+            </p>
+            <ul style={{ margin: "12px 0 0 0", paddingLeft: "20px", fontSize: "13px", color: "#374151" }}>
+              <li>Manage the system internally with your IT team</li>
+              <li>Continue working with the original developer for updates</li>
+              <li>Hire any other developer - the code is standard and well-documented</li>
+            </ul>
+          </div>
+        </>
+      ),
+    },
+    {
       title: "System Overview",
       icon: "🏗️",
       content: (
@@ -643,6 +755,47 @@ function SupportCard({ level, description, contact }: { level: string; descripti
       <strong style={{ color: "#111827", display: "block", marginBottom: "4px" }}>{level}</strong>
       <p style={{ margin: "0 0 8px 0", fontSize: "13px", color: "#6b7280" }}>{description}</p>
       <span style={{ fontSize: "12px", color: "#0057A8" }}>→ {contact}</span>
+    </div>
+  );
+}
+
+function HandoverCard({ platform, icon, description, action, whatYouGet }: { 
+  platform: string; 
+  icon: string; 
+  description: string; 
+  action: string;
+  whatYouGet: string[];
+}) {
+  return (
+    <div style={{ 
+      padding: "16px", 
+      background: "#f8fafc", 
+      borderRadius: "8px",
+      border: "1px solid #e2e8f0"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
+        <span style={{ fontSize: "24px" }}>{icon}</span>
+        <div>
+          <strong style={{ color: "#111827", display: "block" }}>{platform}</strong>
+          <span style={{ fontSize: "12px", color: "#6b7280" }}>{description}</span>
+        </div>
+      </div>
+      <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#374151" }}>{action}</p>
+      <div style={{ 
+        background: "white", 
+        padding: "10px 12px", 
+        borderRadius: "6px",
+        border: "1px solid #e2e8f0"
+      }}>
+        <span style={{ fontSize: "11px", fontWeight: "600", color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+          What you get:
+        </span>
+        <ul style={{ margin: "6px 0 0 0", paddingLeft: "16px", fontSize: "12px", color: "#374151" }}>
+          {whatYouGet.map((item, i) => (
+            <li key={i} style={{ marginBottom: "2px" }}>{item}</li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
