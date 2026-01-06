@@ -55,7 +55,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, name, role, department, sendEmail, username, isInternalUser } = body;
+    const { email, password, name, role, department, username, isInternalUser } = body;
 
     if (!email || !password || !name) {
       return NextResponse.json(
@@ -107,17 +107,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: profileError.message }, { status: 500 });
     }
 
-    // Send welcome email with login instructions if requested
-    if (sendEmail && !isInternal) {
-      // Use Supabase's built-in password reset to send credentials
-      // This sends a "reset password" email that user can use to set their password
-      // Or we could send a custom email with the password
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      
-      // For now, we'll just include the info in the response
-      // In production, you'd integrate with an email service like Resend, SendGrid, etc.
-    }
-
     const loginInfo = isInternal 
       ? `Username: ${username}`
       : `Email: ${email}`;
@@ -133,9 +122,7 @@ export async function POST(request: NextRequest) {
       },
       message: isInternal
         ? `User created! Login with username: ${username}`
-        : sendEmail
-          ? "User created. Login instructions should be sent to their email."
-          : "User created successfully.",
+        : "User created successfully.",
       credentials: {
         login: isInternal ? username : email,
         isInternalUser: isInternal,

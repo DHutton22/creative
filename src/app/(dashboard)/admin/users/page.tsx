@@ -80,7 +80,6 @@ export default function AdminUsersPage() {
     name: "",
     role: "operator" as UserRole,
     department: "",
-    sendEmail: false,
     isInternalUser: true, // Default to internal user (no email required)
   });
 
@@ -139,7 +138,6 @@ export default function AdminUsersPage() {
           name: "",
           role: "operator",
           department: "",
-          sendEmail: false,
           isInternalUser: true,
         });
         fetchUsers();
@@ -205,28 +203,6 @@ export default function AdminUsersPage() {
     }
   };
 
-  const handleSendCredentials = async (user: User) => {
-    setError("");
-    setSuccess("");
-
-    try {
-      const res = await fetch("/api/admin/users/send-credentials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, email: user.email }),
-      });
-      const data = await res.json();
-
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setSuccess(data.message);
-      }
-    } catch {
-      setError("Failed to send login instructions");
-    }
-  };
-
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setFormData({
@@ -236,7 +212,6 @@ export default function AdminUsersPage() {
       name: user.name,
       role: user.role,
       department: user.department || "",
-      sendEmail: false,
       isInternalUser: user.email?.endsWith('@cc.internal') || false,
     });
     setShowEditModal(true);
@@ -294,7 +269,6 @@ export default function AdminUsersPage() {
               name: "",
               role: "operator",
               department: "",
-              sendEmail: false,
               isInternalUser: true,
             });
             setShowCreateModal(true);
@@ -451,22 +425,6 @@ export default function AdminUsersPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleSendCredentials(user)}
-                        title="Send login instructions"
-                        style={{
-                          padding: "8px",
-                          background: "#f3f4f6",
-                          border: "none",
-                          borderRadius: "6px",
-                          cursor: "pointer",
-                          color: "#374151",
-                        }}
-                      >
-                        <svg style={{ width: "18px", height: "18px" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </button>
-                      <button
                         onClick={() => openEditModal(user)}
                         title="Edit user"
                         style={{
@@ -584,7 +542,7 @@ export default function AdminUsersPage() {
                 <p style={{ fontSize: "13px", color: "#6b7280", margin: "-8px 0 0 0", padding: "0 4px" }}>
                   {formData.isInternalUser 
                     ? "Internal users log in with a username - no email required" 
-                    : "Email users receive login instructions via email"}
+                    : "Email users log in with their email address"}
                 </p>
 
                 <div>
@@ -697,20 +655,6 @@ export default function AdminUsersPage() {
                   />
                 </div>
 
-                {!formData.isInternalUser && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
-                    <input
-                      type="checkbox"
-                      id="sendEmail"
-                      checked={formData.sendEmail}
-                      onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                      style={{ width: "18px", height: "18px", accentColor: BRAND_BLUE }}
-                    />
-                    <label htmlFor="sendEmail" style={{ fontSize: "14px", color: "#374151" }}>
-                      Send login instructions to user&apos;s email
-                    </label>
-                  </div>
-                )}
               </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px", paddingTop: "20px", borderTop: "1px solid #e2e8f0" }}>
