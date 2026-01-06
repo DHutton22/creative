@@ -105,11 +105,41 @@ export default function AdminTemplatesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    // First check if there are any checklist runs using this template
+    const { count } = await supabase
+      .from("checklist_runs")
+      .select("*", { count: "exact", head: true })
+      .eq("template_id", id);
+    
+    if (count && count > 0) {
+      const shouldArchive = confirm(
+        `This template has ${count} checklist run${count > 1 ? 's' : ''} and cannot be deleted.\n\n` +
+        `Would you like to archive it instead? (Set status to 'deprecated')\n\n` +
+        `Click OK to archive, or Cancel to keep it as is.`
+      );
+      
+      if (shouldArchive) {
+        const { error } = await supabase
+          .from("checklist_templates")
+          .update({ status: "deprecated" })
+          .eq("id", id);
+        
+        if (error) {
+          alert("Failed to archive template: " + error.message);
+        } else {
+          fetchTemplates();
+        }
+      }
+      return;
+    }
+    
     if (!confirm("Are you sure you want to delete this template?")) return;
     
     const { error } = await supabase.from("checklist_templates").delete().eq("id", id);
     
-    if (!error) {
+    if (error) {
+      alert("Failed to delete template: " + error.message);
+    } else {
       fetchTemplates();
     }
   };
