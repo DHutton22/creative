@@ -18,35 +18,29 @@ export default function TechnicalDocsPage() {
       content: (
         <>
           <div style={{ 
-            background: "#fef3c7", 
+            background: "#f0f9ff", 
             padding: "16px", 
             borderRadius: "8px", 
             marginBottom: "16px",
-            border: "1px solid #fcd34d" 
+            border: "1px solid #bae6fd" 
           }}>
-            <strong>⚠️ Action Required:</strong>
+            <strong>ℹ️ How This Works:</strong>
             <p style={{ margin: "8px 0 0 0" }}>
-              To complete the handover, Creative Composites needs to provide a single email address 
-              that will be used to manage all platform accounts.
+              We will create and set up all accounts for you, then provide you with login details.
+              You&apos;ll have full ownership and can manage everything yourself.
             </p>
           </div>
 
-          <p>
-            All three platform accounts (Vercel, Supabase, and GitHub) will be transferred to 
-            Creative Composites ownership. This ensures you have full control over your system 
-            and data.
-          </p>
-
           <div style={{ marginTop: "20px" }}>
-            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>Required: Admin Email Address</h4>
+            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>Step 1: Provide an Admin Email</h4>
             <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#6b7280" }}>
-              Please provide an email address that will be used to:
+              We need a single email address to set up all your accounts. This email will:
             </p>
             <ul style={{ margin: "0 0 16px 0", paddingLeft: "20px", fontSize: "14px" }}>
-              <li>Receive account invitations and login credentials</li>
-              <li>Receive billing notifications and invoices</li>
+              <li>Be used to log in to all three platforms</li>
+              <li>Receive password reset links if needed</li>
+              <li>Receive billing notifications (if you subscribe)</li>
               <li>Receive security alerts and system notifications</li>
-              <li>Act as the primary contact for all platforms</li>
             </ul>
             <div style={{ 
               background: "#f0fdf4", 
@@ -62,14 +56,17 @@ export default function TechnicalDocsPage() {
           </div>
 
           <div style={{ marginTop: "24px" }}>
-            <h4 style={{ margin: "0 0 16px 0", color: "#111827" }}>What Will Be Set Up</h4>
+            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>Step 2: We Set Everything Up</h4>
+            <p style={{ margin: "0 0 16px 0", fontSize: "13px", color: "#6b7280" }}>
+              Once you provide the email, we will create accounts on all three platforms and configure everything:
+            </p>
             
             <div style={{ display: "grid", gap: "12px" }}>
               <HandoverCard
                 platform="GitHub"
                 icon="🐙"
                 description="Source code repository"
-                action="A new repository will be created under your own GitHub account or organisation. You'll have full access to all code and version history."
+                action="We'll create a GitHub account (or use your existing one) and set up the repository with all the source code."
                 whatYouGet={[
                   "Full ownership of the source code",
                   "Complete version history",
@@ -80,46 +77,178 @@ export default function TechnicalDocsPage() {
                 platform="Vercel"
                 icon="▲"
                 description="Hosting & deployment"
-                action="The project will be transferred to a Vercel account under your email. Automatic deployments will continue to work from your GitHub."
+                action="We'll create a Vercel account and connect it to your GitHub. The website will be live and auto-deploy when code changes."
                 whatYouGet={[
                   "Control over the live website",
                   "Access to deployment logs",
                   "Ability to set custom domains",
-                  "Direct billing to your account",
                 ]}
               />
               <HandoverCard
                 platform="Supabase"
                 icon="⚡"
                 description="Database & authentication"
-                action="The Supabase project will be transferred to your account. All data remains intact during transfer."
+                action="We'll create a Supabase account with your database and all user data. Everything transfers seamlessly."
                 whatYouGet={[
                   "Full database access",
                   "User management control",
-                  "Backup management",
-                  "Direct billing ($25/month Pro plan)",
+                  "File storage for photos",
                 ]}
               />
             </div>
           </div>
 
+          <div style={{ marginTop: "24px" }}>
+            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>Step 3: You Receive Login Details</h4>
+            <p style={{ margin: "0", fontSize: "13px", color: "#6b7280" }}>
+              We&apos;ll send you login credentials for each platform. You can then change passwords 
+              and set up two-factor authentication for extra security.
+            </p>
+          </div>
+        </>
+      ),
+    },
+    {
+      title: "Subscriptions & Payment",
+      icon: "💳",
+      content: (
+        <>
+          <div style={{ 
+            background: "#fefce8", 
+            padding: "16px", 
+            borderRadius: "8px", 
+            marginBottom: "16px",
+            border: "1px solid #fef08a" 
+          }}>
+            <strong>💡 Good to Know:</strong>
+            <p style={{ margin: "8px 0 0 0" }}>
+              Paid subscriptions are <strong>optional</strong>. The system works on free tiers, but 
+              paid plans provide important benefits like automatic backups and guaranteed uptime.
+            </p>
+          </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <h4 style={{ margin: "0 0 16px 0", color: "#111827" }}>Free vs Paid Comparison</h4>
+            
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  <th style={{ padding: "12px", textAlign: "left", borderBottom: "2px solid #e2e8f0" }}>Feature</th>
+                  <th style={{ padding: "12px", textAlign: "center", borderBottom: "2px solid #e2e8f0" }}>Free Tier</th>
+                  <th style={{ padding: "12px", textAlign: "center", borderBottom: "2px solid #e2e8f0", background: "#f0fdf4" }}>Pro Plan</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>System works</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>✅ Yes</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>✅ Yes</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Automatic daily backups</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", color: "#dc2626" }}>❌ No</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>✅ Yes (7-day retention)</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Always online</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", color: "#dc2626" }}>⚠️ Pauses after 7 days inactive</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>✅ Never pauses</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Database storage</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>500 MB</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>8 GB</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>File storage (photos)</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>1 GB</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>100 GB</td>
+                </tr>
+                <tr>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Email support</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", color: "#dc2626" }}>❌ Community only</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4" }}>✅ Yes</td>
+                </tr>
+                <tr style={{ fontWeight: "600" }}>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0" }}>Monthly cost</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center" }}>Free</td>
+                  <td style={{ padding: "10px 12px", borderBottom: "1px solid #e2e8f0", textAlign: "center", background: "#f0fdf4", color: "#0057A8" }}>$25/month</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div style={{ 
             marginTop: "24px",
             padding: "16px",
-            background: "#f8fafc",
+            background: "#fef2f2",
             borderRadius: "8px",
-            border: "1px solid #e2e8f0"
+            border: "1px solid #fecaca"
           }}>
-            <h4 style={{ margin: "0 0 12px 0", color: "#111827" }}>After Handover</h4>
-            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
-              Once all accounts are transferred, you will have complete ownership and control. 
-              The system will continue to work exactly as it does now. You can choose to:
+            <strong>⚠️ Our Recommendation:</strong>
+            <p style={{ margin: "8px 0 0 0", fontSize: "13px" }}>
+              For a production system used daily by your team, we strongly recommend the <strong>Supabase Pro plan ($25/month)</strong>. 
+              The automatic backups alone are worth it - if something goes wrong, you can restore your data. 
+              The free tier can pause your database if inactive, which would cause the system to go offline.
             </p>
-            <ul style={{ margin: "12px 0 0 0", paddingLeft: "20px", fontSize: "13px", color: "#374151" }}>
-              <li>Manage the system internally with your IT team</li>
-              <li>Continue working with the original developer for updates</li>
-              <li>Hire any other developer - the code is standard and well-documented</li>
+          </div>
+
+          <div style={{ marginTop: "24px" }}>
+            <h4 style={{ margin: "0 0 16px 0", color: "#111827" }}>How to Subscribe to Supabase Pro</h4>
+            
+            <div style={{ 
+              padding: "16px", 
+              background: "#f8fafc", 
+              borderRadius: "8px",
+              border: "1px solid #e2e8f0"
+            }}>
+              <ol style={{ margin: 0, paddingLeft: "20px", fontSize: "14px", lineHeight: "2" }}>
+                <li>Go to <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" style={{ color: "#0057A8" }}>supabase.com</a> and log in with your credentials</li>
+                <li>Select the <strong>Creative Composites</strong> project</li>
+                <li>Click on <strong>Project Settings</strong> (gear icon) in the left sidebar</li>
+                <li>Click on <strong>Billing</strong> in the settings menu</li>
+                <li>Click <strong>Upgrade to Pro</strong></li>
+                <li>Enter your payment card details</li>
+                <li>Confirm the subscription</li>
+              </ol>
+              
+              <div style={{ 
+                marginTop: "16px",
+                padding: "12px",
+                background: "#eff6ff",
+                borderRadius: "6px",
+                fontSize: "13px"
+              }}>
+                <strong>Direct link:</strong> Once logged in, go to<br />
+                <code style={{ 
+                  display: "block",
+                  marginTop: "8px",
+                  padding: "8px 12px", 
+                  background: "#1e293b", 
+                  color: "#e2e8f0", 
+                  borderRadius: "4px",
+                  fontSize: "12px"
+                }}>
+                  https://supabase.com/dashboard/project/[your-project-id]/settings/billing
+                </code>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginTop: "24px" }}>
+            <h4 style={{ margin: "0 0 16px 0", color: "#111827" }}>Vercel (Optional)</h4>
+            <p style={{ margin: "0 0 12px 0", fontSize: "13px", color: "#6b7280" }}>
+              Vercel&apos;s free tier is usually sufficient. Only upgrade if you need:
+            </p>
+            <ul style={{ margin: "0 0 16px 0", paddingLeft: "20px", fontSize: "13px" }}>
+              <li>Multiple team members deploying</li>
+              <li>Advanced analytics</li>
+              <li>Higher bandwidth limits</li>
             </ul>
+            <p style={{ margin: 0, fontSize: "13px", color: "#6b7280" }}>
+              To upgrade: Log in at <a href="https://vercel.com" target="_blank" rel="noopener noreferrer" style={{ color: "#0057A8" }}>vercel.com</a> → 
+              Click your team name → Settings → Billing → Upgrade
+            </p>
           </div>
         </>
       ),
