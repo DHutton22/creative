@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import type { User, UserRole } from "@/types/database";
@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   hasRole: (roles: UserRole | UserRole[]) => boolean;
+  refreshProfile: () => Promise<void>;
   // Impersonation
   isImpersonating: boolean;
   originalUser: User | null;
@@ -31,13 +32,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Track the current user ID to prevent race conditions
+  const currentUserIdRef = useRef<string | null>(null);
+  
   // Impersonation state
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [originalUser, setOriginalUser] = useState<User | null>(null);
   const [impersonatedUser, setImpersonatedUser] = useState<User | null>(null);
 
-  const fetchUserProfile = useCallback(async (supabaseUser: SupabaseUser) => {
+  const fetchUserProfile = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
+      console.log("[Auth] Fetching profile for user:", supabaseUser.id, supabaseUser.email);
+      
       const { data, error } = await supabase
         .from("users")
         .select("*")
@@ -45,33 +51,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (error) {
-        console.error("Error fetching user profile:", error);
+        console.error("[Auth] Error fetching user profile:", error);
         return null;
       }
+      
+      console.log("[Auth] Profile fetched:", data?.name, data?.role);
       return data as User;
     } catch (err) {
-      console.error("Exception fetching user profile:", err);
+      console.error("[Auth] Exception fetching user profile:", err);
       return null;
     }
   }, []);
+
+  // Function to refresh the current user's profile
+  const refreshProfile = useCallback(async () => {
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (currentSession?.user) {
+      const profile = await fetchUserProfile(currentSession.user);
+      if (profile) {
+        setUser(profile);
+        currentUserIdRef.current = profile.id;
+      }
+    }
+  }, [fetchUserProfile]);
 
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
+        console.log("[Auth] Initializing...");
+        
         // First try to get the session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
-          console.error("Session error:", sessionError);
+          console.error("[Auth] Session error:", sessionError);
           // Try to refresh the session
           const { data: refreshData } = await supabase.auth.refreshSession();
           if (refreshData.session && mounted) {
             setSession(refreshData.session);
             if (refreshData.session.user) {
               const profile = await fetchUserProfile(refreshData.session.user);
-              if (mounted) setUser(profile);
+              if (mounted && profile) {
+                setUser(profile);
+                currentUserIdRef.current = profile.id;
+              }
             }
           }
           if (mounted) setIsLoading(false);
@@ -85,19 +110,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           const profile = await fetchUserProfile(session.user);
           if (mounted) {
-            setUser(profile);
+            if (profile) {
+              setUser(profile);
+              currentUserIdRef.current = profile.id;
+            }
           }
         } else {
           // No session - ensure clean state
           setUser(null);
+          currentUserIdRef.current = null;
         }
       } catch (error) {
-        console.error("Error initializing auth:", error);
-        // On error, clear state to force re-login
-        if (mounted) {
-          setUser(null);
-          setSession(null);
-        }
+        console.error("[Auth] Error initializing auth:", error);
+        // On error, don't clear state - keep existing user if we have one
+        // This prevents losing auth state on transient errors
       } finally {
         if (mounted) {
           setIsLoading(false);
@@ -108,34 +134,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event, newSession) => {
         if (!mounted) return;
         
-        console.log("Auth state changed:", event);
-        setSession(session);
-
+        console.log("[Auth] Auth state changed:", event, newSession?.user?.email);
+        
         if (event === "SIGNED_OUT") {
+          console.log("[Auth] User signed out, clearing state");
           setUser(null);
           setSession(null);
+          currentUserIdRef.current = null;
           return;
         }
 
-        if (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") {
-          if (session?.user) {
-            const profile = await fetchUserProfile(session.user);
-            if (mounted) {
-              setUser(profile);
+        // Update session
+        setSession(newSession);
+
+        // Only fetch profile if we have a session with a user
+        if (newSession?.user) {
+          // Check if this is actually a different user
+          const newUserId = newSession.user.id;
+          
+          // Always fetch on SIGNED_IN, otherwise only if user changed or TOKEN_REFRESHED
+          if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || currentUserIdRef.current !== newUserId) {
+            console.log("[Auth] Fetching profile for event:", event);
+            const profile = await fetchUserProfile(newSession.user);
+            
+            if (mounted && profile) {
+              // Double-check we're still dealing with the same user
+              const { data: { session: currentSession } } = await supabase.auth.getSession();
+              if (currentSession?.user?.id === profile.id) {
+                console.log("[Auth] Setting user profile:", profile.name, profile.role);
+                setUser(profile);
+                currentUserIdRef.current = profile.id;
+              } else {
+                console.log("[Auth] Session changed during profile fetch, skipping update");
+              }
             }
           }
-        }
-
-        if (session?.user) {
-          const profile = await fetchUserProfile(session.user);
-          if (mounted) {
-            setUser(profile);
-          }
-        } else {
+        } else if (event !== "TOKEN_REFRESHED") {
+          // Only clear user if this isn't just a token refresh event
+          // Token refresh can sometimes fire with null session temporarily
+          console.log("[Auth] No user in session for event:", event);
           setUser(null);
+          currentUserIdRef.current = null;
         }
       }
     );
@@ -213,12 +255,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUp,
     signOut,
     hasRole,
+    refreshProfile,
     // Impersonation
     isImpersonating,
     originalUser,
     viewAsUser,
     stopImpersonating,
-  }), [effectiveUser, session, isLoading, isAuthenticated, hasRole, isImpersonating, originalUser, viewAsUser, stopImpersonating]);
+  }), [effectiveUser, session, isLoading, isAuthenticated, hasRole, refreshProfile, isImpersonating, originalUser, viewAsUser, stopImpersonating]);
 
   return (
     <AuthContext.Provider value={contextValue}>
