@@ -170,3 +170,7 @@ checklist-images/
 - [ ] Automatic image cleanup for old checklists
 - [ ] PDF export with embedded images
 
+
+
+
+

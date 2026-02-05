@@ -194,3 +194,7 @@ If you need help:
 
 The photo required feature is fully implemented and ready for production use!
 
+
+
+
+

@@ -82,3 +82,7 @@ GRANT SELECT ON checklist_compliance_status TO authenticated;
 -- SET due_date = started_at + INTERVAL '1 day'
 -- WHERE status = 'in_progress' AND due_date IS NULL;
 
+
+
+
+

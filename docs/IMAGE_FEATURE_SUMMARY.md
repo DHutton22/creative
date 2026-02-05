@@ -81,3 +81,7 @@
 - Touch-friendly buttons
 - Image preview before saving
 
+
+
+
+

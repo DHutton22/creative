@@ -244,3 +244,7 @@ Example:
 - [ ] Timestamp overlays
 - [ ] Photo compression options
 
+
+
+
+

@@ -84,3 +84,7 @@ INSERT INTO checklist_templates (
 -- 3. Ensure the paths match where you uploaded the images
 -- 4. Test the URLs in a browser to confirm they're accessible
 
+
+
+
+

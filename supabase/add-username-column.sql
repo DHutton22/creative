@@ -17,3 +17,7 @@ COMMENT ON COLUMN public.users.username IS 'Username for internal users who log 
 CREATE INDEX IF NOT EXISTS users_username_idx ON public.users (username) WHERE username IS NOT NULL;
 
 
+
+
+
+

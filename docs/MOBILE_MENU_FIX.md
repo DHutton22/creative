@@ -117,3 +117,7 @@ Consider using CSS custom properties (variables) for:
 
 This would make the responsive behavior even more maintainable.
 
+
+
+
+

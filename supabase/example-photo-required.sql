@@ -185,3 +185,7 @@ WHERE name = 'Your Existing Template Name'
 -- SELECT name, type, version + 1, updated_json, ...
 -- FROM checklist_templates WHERE id = 'template-id';
 
+
+
+
+
