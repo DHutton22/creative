@@ -15,7 +15,7 @@ interface HeaderProps {
 }
 
 export function Header({ title, showSearch = true, onMenuClick }: HeaderProps) {
-  const { user, isImpersonating, originalUser, stopImpersonating } = useAuth();
+  const { user, isLoading, isImpersonating, originalUser, stopImpersonating } = useAuth();
   const [notifications] = useState(3); // Mock notification count
 
   return (
@@ -81,7 +81,7 @@ export function Header({ title, showSearch = true, onMenuClick }: HeaderProps) {
         </Button>
 
         {/* User menu */}
-        <UserMenu user={user} />
+        <UserMenu user={user} isLoading={isLoading} />
       </div>
     </header>
     </>
@@ -89,7 +89,7 @@ export function Header({ title, showSearch = true, onMenuClick }: HeaderProps) {
 }
 
 // User menu with dropdown
-function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
+function UserMenu({ user, isLoading }: { user: { name?: string; role?: string } | null; isLoading: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const router = useRouter();
   const supabase = createClient();
@@ -149,10 +149,10 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
         </div>
         <div className="hidden sm:block" style={{ textAlign: "left" }}>
           <p style={{ margin: 0, fontSize: "14px", fontWeight: "600", color: "#1e293b" }}>
-            {user?.name || "User"}
+            {isLoading ? "" : (user?.name || "User")}
           </p>
           <p style={{ margin: 0, fontSize: "12px", color: "#64748b", textTransform: "capitalize" }}>
-            {user?.role || "operator"}
+            {isLoading ? "Loading..." : (user?.role ?? "")}
           </p>
         </div>
         <ChevronDown 
@@ -210,10 +210,10 @@ function UserMenu({ user }: { user: { name?: string; role?: string } | null }) {
                 </div>
                 <div>
                   <p style={{ margin: 0, fontSize: "15px", fontWeight: "600", color: "#1e293b" }}>
-                    {user?.name || "User"}
+                    {isLoading ? "" : (user?.name || "User")}
                   </p>
                   <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#64748b", textTransform: "capitalize" }}>
-                    {user?.role || "operator"}
+                    {isLoading ? "Loading..." : (user?.role ?? "")}
                   </p>
                 </div>
               </div>
