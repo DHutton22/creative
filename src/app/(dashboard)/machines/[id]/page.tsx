@@ -24,7 +24,7 @@ interface ChecklistRun {
   status: string;
   started_at: string;
   checklist_templates: { name: string } | null;
-  profiles: { name: string } | null;
+  users: { name: string } | null;
 }
 
 interface ChecklistTemplate {
@@ -130,7 +130,7 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
       .select(`
         id, status, started_at,
         checklist_templates (name),
-        profiles (name)
+        users!checklist_runs_user_id_fkey (name)
       `)
       .eq("machine_id", resolvedParams.id)
       .order("started_at", { ascending: false })
@@ -340,7 +340,7 @@ export default function MachineDetailPage({ params }: { params: Promise<{ id: st
                           {run.checklist_templates?.name || 'Unknown Template'}
                         </p>
                         <p style={{ fontSize: '12px', color: '#6b7280', margin: '2px 0 0 0' }}>
-                          {run.profiles?.name} • {formatDate(run.started_at)}
+                          {run.users?.name} • {formatDate(run.started_at)}
                         </p>
                       </div>
                       <span style={{

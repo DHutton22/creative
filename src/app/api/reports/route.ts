@@ -29,6 +29,7 @@ export async function GET(request: Request) {
   startDate.setDate(startDate.getDate() - days);
 
   // Get all checklist runs
+  // Use explicit FK reference because checklist_runs has two FKs to users (user_id and supervisor_id)
   const { data: runs, error: runsError } = await supabase
     .from("checklist_runs")
     .select(`
@@ -39,7 +40,7 @@ export async function GET(request: Request) {
       user_id,
       machine_id,
       machines (id, name),
-      users (id, name, email, role),
+      users!checklist_runs_user_id_fkey (id, name, email, role),
       checklist_templates (name)
     `)
     .gte("started_at", startDate.toISOString())

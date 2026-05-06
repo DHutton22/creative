@@ -39,17 +39,21 @@ export default function ChecklistHistoryPage() {
     setIsLoading(true);
 
     // Fetch runs for current user
-    const { data: runData } = await supabase
+    const { data: runData, error: runError } = await supabase
       .from("checklist_runs")
       .select(`
         *,
         checklist_templates (name),
         machines (name),
-        users (name)
+        users!checklist_runs_user_id_fkey (name)
       `)
       .eq("user_id", user.id)
       .order("started_at", { ascending: false })
       .limit(50);
+
+    if (runError) {
+      console.error("[Checklists] Error fetching runs:", runError);
+    }
 
     setRuns(runData || []);
     setIsLoading(false);
