@@ -44,9 +44,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[Auth] Fetching profile for user:", supabaseUser.id, supabaseUser.email);
 
-      // Race against a 5s timeout so the UI never sticks on "Loading..." if the
-      // PostgREST request silently stalls (browser caching, broken connection,
-      // ad blocker, etc.)
+      // Try the server-side /api/me endpoint first - it's much more reliable
+      // than the browser PostgREST client because the request runs server-side
+      // (no CORS, no ad blockers, no browser extensions, stable network).
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch("/api/me", { signal: controller.signal, credentials: "include" });
+        clearTimeout(timeoutId);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.user) {
+            console.log("[Auth] Profile fetched via /api/me:", json.user.name, json.user.role);
+            return json.user as User;
+          }
+        }
+        console.warn("[Auth] /api/me returned no user, falling back to direct query");
+      } catch (apiErr) {
+        console.warn("[Auth] /api/me request failed, falling back:", apiErr);
+      }
+
+      // Fallback: direct browser query (with timeout) in case /api/me is unreachable
       const queryPromise = supabase
         .from("users")
         .select("*")
@@ -67,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return null;
       }
 
-      console.log("[Auth] Profile fetched:", data?.name, data?.role);
+      console.log("[Auth] Profile fetched (fallback):", data?.name, data?.role);
       return data as User;
     } catch (err) {
       console.error("[Auth] Exception fetching user profile:", err);
