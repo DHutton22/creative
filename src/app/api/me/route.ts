@@ -30,6 +30,20 @@ export async function GET() {
       return NextResponse.json({ user: null, error: profileError.message }, { status: 500 });
     }
 
+    // Diagnostic: count the authenticated user's visible checklist_runs under RLS.
+    // Helps verify whether browser-side empty results are an auth/cookie problem
+    // vs. a data/RLS problem. count: "exact", head: true returns count without rows.
+    const { count: runsCount, error: runsCountError } = await supabase
+      .from("checklist_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", authUser.id);
+
+    console.log(
+      `[/api/me] ok user=${authUser.id} role=${profile?.role ?? "?"} runs=${
+        runsCountError ? `err:${runsCountError.code ?? "?"}` : runsCount ?? 0
+      }`
+    );
+
     return NextResponse.json({ user: profile });
   } catch (err) {
     console.error("[/api/me] Exception:", err);
