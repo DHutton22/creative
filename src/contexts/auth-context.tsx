@@ -109,7 +109,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     // Hard ceiling: no matter what, stop showing "Loading..." after 8s.
-    // Any remaining work continues in the background; user just sees the UI.
     const loadingCeiling = setTimeout(() => {
       if (mounted) {
         console.warn("[Auth] Loading ceiling reached (8s) - releasing UI");
@@ -119,50 +118,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        console.log("[Auth] Initializing...");
-        
-        // First try to get the session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error("[Auth] Session error:", sessionError);
-          // Try to refresh the session
-          const { data: refreshData } = await supabase.auth.refreshSession();
-          if (refreshData.session && mounted) {
-            setSession(refreshData.session);
-            if (refreshData.session.user) {
-              const profile = await fetchUserProfile(refreshData.session.user);
-              if (mounted && profile) {
-                setUser(profile);
-                currentUserIdRef.current = profile.id;
-              }
-            }
-          }
-          if (mounted) setIsLoading(false);
-          return;
-        }
-        
-        if (!mounted) return;
-        
-        setSession(session);
+        console.log("[Auth] Initializing - asking server who I am via /api/me...");
 
-        if (session?.user) {
-          const profile = await fetchUserProfile(session.user);
-          if (mounted) {
-            if (profile) {
-              setUser(profile);
-              currentUserIdRef.current = profile.id;
+        // Always ask the server. The browser-side getSession() can fail to read
+        // the cookie (older @supabase/ssr versions, large cookies that get
+        // chunked, browser extensions, etc.) - the server-side cookie reader
+        // is reliable.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        let serverProfile: User | null = null;
+        try {
+          const res = await fetch("/api/me", { signal: controller.signal, credentials: "include" });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.user) {
+              serverProfile = json.user as User;
+              console.log("[Auth] /api/me returned:", serverProfile.name, serverProfile.role);
+            } else {
+              console.log("[Auth] /api/me returned no user (not authenticated)");
             }
+          } else if (res.status === 401) {
+            console.log("[Auth] /api/me reports not authenticated");
+          } else {
+            console.warn("[Auth] /api/me returned status:", res.status);
           }
+        } catch (apiErr) {
+          clearTimeout(timeoutId);
+          console.warn("[Auth] /api/me request failed:", apiErr);
+        }
+
+        if (!mounted) return;
+
+        if (serverProfile) {
+          setUser(serverProfile);
+          currentUserIdRef.current = serverProfile.id;
         } else {
-          // No session - ensure clean state
           setUser(null);
           currentUserIdRef.current = null;
         }
+
+        // Independently load the supabase session (for token-refresh tracking
+        // and the .session field consumers expect). Don't block the UI on it.
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (mounted) setSession(session);
+        } catch (sessErr) {
+          console.warn("[Auth] getSession failed (non-fatal):", sessErr);
+        }
       } catch (error) {
         console.error("[Auth] Error initializing auth:", error);
-        // On error, don't clear state - keep existing user if we have one
-        // This prevents losing auth state on transient errors
       } finally {
         if (mounted) {
           setIsLoading(false);
