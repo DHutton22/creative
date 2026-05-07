@@ -43,18 +43,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = useCallback(async (supabaseUser: SupabaseUser): Promise<User | null> => {
     try {
       console.log("[Auth] Fetching profile for user:", supabaseUser.id, supabaseUser.email);
-      
-      const { data, error } = await supabase
+
+      // Race against a 5s timeout so the UI never sticks on "Loading..." if the
+      // PostgREST request silently stalls (browser caching, broken connection,
+      // ad blocker, etc.)
+      const queryPromise = supabase
         .from("users")
         .select("*")
         .eq("id", supabaseUser.id)
         .single();
 
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+        setTimeout(
+          () => resolve({ data: null, error: new Error("Profile fetch timed out after 5s") }),
+          5000
+        )
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
       if (error) {
         console.error("[Auth] Error fetching user profile:", error);
         return null;
       }
-      
+
       console.log("[Auth] Profile fetched:", data?.name, data?.role);
       return data as User;
     } catch (err) {
@@ -77,6 +89,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+
+    // Hard ceiling: no matter what, stop showing "Loading..." after 8s.
+    // Any remaining work continues in the background; user just sees the UI.
+    const loadingCeiling = setTimeout(() => {
+      if (mounted) {
+        console.warn("[Auth] Loading ceiling reached (8s) - releasing UI");
+        setIsLoading(false);
+      }
+    }, 8000);
 
     const initializeAuth = async () => {
       try {
@@ -184,6 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
+      clearTimeout(loadingCeiling);
       subscription.unsubscribe();
     };
   }, [fetchUserProfile]);
