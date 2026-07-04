@@ -77,6 +77,7 @@ function NewChecklistContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState<string | null>(null); // track which template is being submitted
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -85,15 +86,34 @@ function NewChecklistContent() {
 
   const fetchData = async () => {
     setIsLoading(true);
+    setLoadFailed(false);
 
-    const [machinesRes, templatesRes] = await Promise.all([
-      supabase.from("machines").select("id, name, manufacturer, model").order("name"),
-      supabase.from("checklist_templates").select("id, name, type, machine_id, frequency").eq("status", "active").order("name"),
-    ]);
+    // Guard against a request that never resolves so the page can't hang on the loading skeleton forever
+    const withTimeout = <T,>(promise: PromiseLike<T>, ms = 15000): Promise<T> =>
+      Promise.race([
+        Promise.resolve(promise),
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("Request timed out. Please check your connection and try again.")), ms)
+        ),
+      ]);
 
-    setMachines(machinesRes.data || []);
-    setTemplates(templatesRes.data || []);
-    setIsLoading(false);
+    try {
+      const [machinesRes, templatesRes] = await Promise.all([
+        withTimeout(supabase.from("machines").select("id, name, manufacturer, model").order("name")),
+        withTimeout(supabase.from("checklist_templates").select("id, name, type, machine_id, frequency").eq("status", "active").order("name")),
+      ]);
+
+      if (machinesRes.error) throw machinesRes.error;
+      if (templatesRes.error) throw templatesRes.error;
+
+      setMachines(machinesRes.data || []);
+      setTemplates(templatesRes.data || []);
+    } catch (err) {
+      console.error("Error loading checklist data:", err);
+      setLoadFailed(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Filter templates based on selected machine (generic + machine-specific)
@@ -169,6 +189,51 @@ function NewChecklistContent() {
               height: '100px',
             }} />
           ))}
+        </div>
+      </div>
+    );
+  }
+
+  // If the initial load failed (or timed out), show a clear error with a retry button
+  // instead of leaving the user stuck on a blank loading screen.
+  if (loadFailed) {
+    return (
+      <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+        <div style={{
+          padding: '48px 24px',
+          background: 'white',
+          borderRadius: '16px',
+          border: '2px solid #fecaca',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
+            Couldn&apos;t load checklists
+          </h3>
+          <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '24px' }}>
+            Something went wrong loading this page. Check your connection and try again.
+          </p>
+          <button
+            onClick={fetchData}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px 24px',
+              background: BRAND_BLUE,
+              color: 'white',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '15px',
+              fontWeight: '600',
+              cursor: 'pointer',
+            }}
+          >
+            <svg style={{ width: '18px', height: '18px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Try Again
+          </button>
         </div>
       </div>
     );
