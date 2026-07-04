@@ -4,6 +4,7 @@ import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/contexts/toast-context";
 import { CameraCapture } from "@/components/ui/camera-capture";
 import Link from "next/link";
 
@@ -81,12 +82,16 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
   const resolvedParams = use(params);
   const router = useRouter();
   const { user } = useAuth();
+  const { showToast } = useToast();
   const supabase = createClient();
 
   const [run, setRun] = useState<ChecklistRun | null>(null);
   const [template, setTemplate] = useState<ChecklistTemplate | null>(null);
   const [machine, setMachine] = useState<Machine | null>(null);
   const [answers, setAnswers] = useState<Map<string, ChecklistAnswer>>(new Map());
+  // Local, uncontrolled-style drafts for text/numeric inputs so typing is not
+  // interrupted by the async save + re-render cycle. Committed to the DB onBlur.
+  const [inputDrafts, setInputDrafts] = useState<Map<string, string>>(new Map());
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [commentingItemId, setCommentingItemId] = useState<string | null>(null);
   const [uploadingItemId, setUploadingItemId] = useState<string | null>(null);
@@ -170,23 +175,41 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     try {
       if (existingAnswer?.id) {
         // Update existing answer
-        await supabase
+        const { error: updateError } = await supabase
           .from("checklist_answers")
           .update(answerData)
           .eq("id", existingAnswer.id);
+
+        if (updateError) {
+          console.error("Error updating answer:", updateError);
+          showToast({
+            type: "error",
+            title: "Couldn't save your change",
+            description: "The update was rejected by the database. Please try again or contact your administrator.",
+          });
+          setIsSaving(false);
+          return;
+        }
         answerData.id = existingAnswer.id;
       } else {
         // Insert new answer
-        const { data, error: uploadError } = await supabase
+        const { data, error: insertError } = await supabase
           .from("checklist_answers")
           .insert(answerData)
           .select("id")
           .single();
-        
-        if (uploadError) {
-          console.error("Error inserting answer:", uploadError);
+
+        if (insertError) {
+          console.error("Error inserting answer:", insertError);
+          showToast({
+            type: "error",
+            title: "Couldn't save your answer",
+            description: "The database rejected this answer. Please try again or contact your administrator.",
+          });
+          setIsSaving(false);
+          return;
         }
-        
+
         if (data) {
           answerData.id = data.id;
         }
@@ -196,6 +219,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
       setAnswers(new Map(answers.set(itemId, { ...answerData, id: answerData.id } as ChecklistAnswer)));
     } catch (err) {
       console.error("Error saving answer:", err);
+      showToast({
+        type: "error",
+        title: "Couldn't save",
+        description: "Something went wrong while saving. Please check your connection and try again.",
+      });
     }
 
     setIsSaving(false);
@@ -204,6 +232,38 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
   const handleAnswer = (sectionId: string, itemId: string, value: boolean) => {
     const existingAnswer = answers.get(itemId);
     saveAnswer(sectionId, itemId, value, existingAnswer?.comment || undefined, existingAnswer?.photo_url || undefined);
+  };
+
+  // The value shown in a text/numeric field: the local draft if the user has
+  // started typing, otherwise the last saved answer value.
+  const getInputValue = (itemId: string): string => {
+    if (inputDrafts.has(itemId)) return inputDrafts.get(itemId) ?? "";
+    const answer = answers.get(itemId);
+    return answer?.value !== undefined && answer?.value !== null ? String(answer.value) : "";
+  };
+
+  const handleInputChange = (itemId: string, value: string) => {
+    setInputDrafts((prev) => new Map(prev).set(itemId, value));
+  };
+
+  // Persist a text/numeric draft to the database (called onBlur / Enter).
+  const commitInputDraft = (sectionId: string, itemId: string, type: "text" | "numeric") => {
+    const raw = inputDrafts.get(itemId);
+    if (raw === undefined) return; // nothing typed since last save
+
+    const existingAnswer = answers.get(itemId);
+
+    if (type === "numeric") {
+      if (raw === "") return; // don't overwrite with empty
+      const num = Number(raw);
+      if (Number.isNaN(num)) return;
+      if (existingAnswer && Number(existingAnswer.value) === num) return; // unchanged
+      saveAnswer(sectionId, itemId, num, existingAnswer?.comment || undefined, existingAnswer?.photo_url || undefined);
+    } else {
+      if (raw === "") return;
+      if (existingAnswer && String(existingAnswer.value) === raw) return; // unchanged
+      saveAnswer(sectionId, itemId, raw, existingAnswer?.comment || undefined, existingAnswer?.photo_url || undefined);
+    }
   };
 
   const [commentingSectionId, setCommentingSectionId] = useState<string | null>(null);
@@ -735,18 +795,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                               placeholder={minVal !== undefined && maxVal !== undefined 
                                 ? `${minVal} - ${maxVal}` 
                                 : "Enter value"}
-                              value={answer?.value !== undefined && answer?.value !== null ? String(answer.value) : ""}
-                              onChange={(e) => {
-                                const val = e.target.value === "" ? null : Number(e.target.value);
-                                if (val !== null) {
-                                  saveAnswer(currentSection.id, item.id, val);
-                                }
-                              }}
-                              onBlur={(e) => {
-                                const val = e.target.value === "" ? null : Number(e.target.value);
-                                if (val !== null) {
-                                  saveAnswer(currentSection.id, item.id, val);
-                                }
+                              value={getInputValue(item.id)}
+                              onChange={(e) => handleInputChange(item.id, e.target.value)}
+                              onBlur={() => commitInputDraft(currentSection.id, item.id, "numeric")}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                               }}
                               style={{
                                 flex: 1,
@@ -827,16 +880,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                           <input
                             type="text"
                             placeholder="Enter response..."
-                            value={answer?.value !== undefined && answer?.value !== null ? String(answer.value) : ""}
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                saveAnswer(currentSection.id, item.id, e.target.value);
-                              }
-                            }}
-                            onBlur={(e) => {
-                              if (e.target.value) {
-                                saveAnswer(currentSection.id, item.id, e.target.value);
-                              }
+                            value={getInputValue(item.id)}
+                            onChange={(e) => handleInputChange(item.id, e.target.value)}
+                            onBlur={() => commitInputDraft(currentSection.id, item.id, "text")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                             }}
                             style={{
                               flex: 1,

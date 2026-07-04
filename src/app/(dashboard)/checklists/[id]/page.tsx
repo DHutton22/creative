@@ -70,6 +70,133 @@ export default function ChecklistDetailPage({ params }: { params: Promise<{ id: 
     return answers.find((a) => a.item_id === itemId);
   };
 
+  const handleExportPDF = () => {
+    if (!run || !template) return;
+
+    const esc = (v: unknown) =>
+      String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+    const statusLabel = statusConfig[run.status]?.label || run.status;
+    const pdfSections = template.json_definition?.sections || [];
+
+    const sectionsHtml = pdfSections
+      .map((section) => {
+        const itemsHtml = section.items
+          .map((item, index) => {
+            const answer = answers.find((a) => a.item_id === item.id);
+            const isPassed = answer?.value === true || answer?.value === "yes";
+            const isFailed = answer?.value === false || answer?.value === "no";
+            let resultText = "Not answered";
+            let resultClass = "na";
+            if (answer) {
+              if (isPassed) { resultText = "Pass"; resultClass = "pass"; }
+              else if (isFailed) { resultText = "Fail"; resultClass = "fail"; }
+              else { resultText = esc(answer.value); resultClass = "value"; }
+            }
+            const commentHtml = answer?.comment
+              ? `<div class="comment"><strong>Note:</strong> ${esc(answer.comment)}</div>`
+              : "";
+            const photoHtml = answer?.photo_url
+              ? `<div class="photo"><img src="${esc(answer.photo_url)}" alt="Attached photo" /></div>`
+              : "";
+            return `
+              <tr>
+                <td class="num">${index + 1}</td>
+                <td class="label">
+                  ${esc(item.label || item.question)}${item.critical ? ' <span class="critical">CRITICAL</span>' : ""}
+                  ${commentHtml}
+                  ${photoHtml}
+                </td>
+                <td class="result ${resultClass}">${resultText}</td>
+              </tr>`;
+          })
+          .join("");
+        return `
+          <div class="section">
+            <h2>${esc(section.title)}</h2>
+            ${section.description ? `<p class="section-desc">${esc(section.description)}</p>` : ""}
+            <table>
+              <thead>
+                <tr><th class="num">#</th><th>Check</th><th class="result">Result</th></tr>
+              </thead>
+              <tbody>${itemsHtml}</tbody>
+            </table>
+          </div>`;
+      })
+      .join("");
+
+    const notesHtml = run.notes
+      ? `<div class="section"><h2>Notes</h2><p>${esc(run.notes)}</p></div>`
+      : "";
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${esc(template.name)} - ${esc(machine?.name || "")}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #111827; margin: 32px; }
+    .header { border-bottom: 3px solid #0057A8; padding-bottom: 16px; margin-bottom: 24px; }
+    .header h1 { color: #0057A8; margin: 0 0 4px 0; font-size: 24px; }
+    .header .machine { color: #374151; font-size: 15px; margin: 0; }
+    .meta { display: flex; flex-wrap: wrap; gap: 24px; margin: 16px 0 24px 0; font-size: 13px; }
+    .meta div span { display: block; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .meta div strong { font-size: 14px; }
+    .badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; background: #dcfce7; color: #166534; font-weight: 600; font-size: 12px; }
+    .section { margin-bottom: 24px; page-break-inside: avoid; }
+    .section h2 { font-size: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 8px; }
+    .section-desc { color: #6b7280; font-size: 13px; margin: 0 0 8px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; background: #f8fafc; padding: 8px; border-bottom: 2px solid #e2e8f0; font-size: 11px; text-transform: uppercase; color: #6b7280; }
+    td { padding: 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+    td.num, th.num { width: 32px; text-align: center; color: #6b7280; }
+    td.result, th.result { width: 90px; text-align: center; font-weight: 600; }
+    td.result.pass { color: #166534; }
+    td.result.fail { color: #991b1b; }
+    td.result.na { color: #9ca3af; font-weight: 400; }
+    .critical { font-size: 10px; background: #fef3c7; color: #92400e; padding: 1px 6px; border-radius: 9999px; font-weight: 600; }
+    .comment { margin-top: 6px; padding: 6px 10px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; font-size: 12px; color: #92400e; }
+    .photo img { max-width: 240px; margin-top: 8px; border: 1px solid #e2e8f0; border-radius: 6px; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e2e8f0; color: #9ca3af; font-size: 11px; }
+    @media print { body { margin: 12mm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${esc(template.name)}</h1>
+    <p class="machine">${esc(machine?.name || "")}</p>
+  </div>
+  <div class="meta">
+    <div><span>Status</span><span class="badge">${esc(statusLabel)}</span></div>
+    <div><span>Operator</span><strong>${esc(operator?.name || "Unknown")}</strong></div>
+    <div><span>Started</span><strong>${esc(formatDateTime(run.started_at))}</strong></div>
+    ${run.completed_at ? `<div><span>Completed</span><strong>${esc(formatDateTime(run.completed_at))}</strong></div>` : ""}
+    ${run.job_number ? `<div><span>Job Number</span><strong>${esc(run.job_number)}</strong></div>` : ""}
+    <div><span>Inspection ID</span><strong>${esc(run.id.slice(0, 8).toUpperCase())}</strong></div>
+  </div>
+  ${sectionsHtml}
+  ${notesHtml}
+  <div class="footer">Generated ${esc(formatDateTime(new Date().toISOString()))}</div>
+</body>
+</html>`;
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow pop-ups for this site to export the PDF.");
+      return;
+    }
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.focus();
+    // Give images/layout a moment before invoking the print dialog.
+    setTimeout(() => printWindow.print(), 400);
+  };
+
   if (isLoading) {
     return (
       <div style={{ maxWidth: '800px', margin: '0 auto' }}>
@@ -247,7 +374,7 @@ export default function ChecklistDetailPage({ params }: { params: Promise<{ id: 
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: '12px' }}>
-        <button style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: 'white', color: '#374151', fontWeight: '500', cursor: 'pointer' }}>
+        <button onClick={handleExportPDF} style={{ flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', background: 'white', color: '#374151', fontWeight: '500', cursor: 'pointer' }}>
           <svg style={{ width: '16px', height: '16px' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
           </svg>

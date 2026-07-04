@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
-import { X, Clock, CheckCircle2, AlertTriangle, User, Calendar, Send, SkipForward, History, ExternalLink, Settings2 } from "lucide-react";
+import { X, Clock, CheckCircle2, AlertTriangle, User, Calendar, Send, SkipForward, History, ExternalLink, Settings2, ChevronRight } from "lucide-react";
 
 interface ChecklistDetails {
   id: string;
@@ -675,30 +676,61 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
                   )}
                 </button>
                 
-                <a
-                  href={`/checklists/${checklist.current_run_id || checklist.template_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    padding: "14px 16px",
-                    background: "white",
-                    color: "#64748b",
-                    border: "2px solid #e2e8f0",
-                    borderRadius: "10px",
-                    fontWeight: "600",
-                    fontSize: "14px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
-                    textDecoration: "none",
-                    gridColumn: "span 2",
-                  }}
-                >
-                  <ExternalLink style={{ width: "18px", height: "18px" }} />
-                  View Checklist
-                </a>
+                {(() => {
+                  // Only link to an actual checklist run. `template_id` is NOT a
+                  // valid run id, so fall back to the latest run in history and
+                  // disable the button entirely if there is nothing to open.
+                  const viewRunId = checklist.current_run_id || recentHistory[0]?.id || null;
+                  if (!viewRunId) {
+                    return (
+                      <div
+                        style={{
+                          padding: "14px 16px",
+                          background: "#f8fafc",
+                          color: "#9ca3af",
+                          border: "2px solid #e2e8f0",
+                          borderRadius: "10px",
+                          fontWeight: "600",
+                          fontSize: "14px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "8px",
+                          gridColumn: "span 2",
+                        }}
+                      >
+                        <ExternalLink style={{ width: "18px", height: "18px" }} />
+                        No checklist to view yet
+                      </div>
+                    );
+                  }
+                  return (
+                    <a
+                      href={`/checklists/${viewRunId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        padding: "14px 16px",
+                        background: "white",
+                        color: "#64748b",
+                        border: "2px solid #e2e8f0",
+                        borderRadius: "10px",
+                        fontWeight: "600",
+                        fontSize: "14px",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        textDecoration: "none",
+                        gridColumn: "span 2",
+                      }}
+                    >
+                      <ExternalLink style={{ width: "18px", height: "18px" }} />
+                      View Checklist
+                    </a>
+                  );
+                })()}
               </div>
             )}
 
@@ -969,37 +1001,50 @@ export function CommandCenterPanel({ checklist, isOpen, onClose, onAction }: Pro
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {recentHistory.map((run) => (
-                  <div
-                    key={run.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      padding: "12px",
-                      background: "#f8fafc",
-                      borderRadius: "8px",
-                    }}
-                  >
-                    <div style={{
-                      width: "8px",
-                      height: "8px",
-                      borderRadius: "50%",
-                      background: run.status === "completed" ? "#22c55e" : run.status === "in_progress" ? BRAND_BLUE : "#9ca3af",
-                      flexShrink: 0,
-                    }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: "13px", color: "#111827", margin: 0, fontWeight: 500 }}>
-                        {run.users?.name || "Unknown"}
-                      </p>
-                      <p style={{ fontSize: "12px", color: "#6b7280", margin: "2px 0 0 0" }}>
-                        {run.status === "completed" ? "Completed" : run.status === "in_progress" ? "In progress" : "Abandoned"}
-                        {" • "}
-                        {getTimeAgo(run.started_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                {recentHistory.map((run) => {
+                  // In-progress runs open the run flow; everything else opens the
+                  // read-only detail page where comments/photos can be reviewed.
+                  const href = run.status === "in_progress"
+                    ? `/checklists/${run.id}/run`
+                    : `/checklists/${run.id}`;
+                  return (
+                    <Link
+                      key={run.id}
+                      href={href}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "12px",
+                        background: "#f8fafc",
+                        borderRadius: "8px",
+                        textDecoration: "none",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "#eff6ff"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "#f8fafc"; }}
+                    >
+                      <div style={{
+                        width: "8px",
+                        height: "8px",
+                        borderRadius: "50%",
+                        background: run.status === "completed" ? "#22c55e" : run.status === "in_progress" ? BRAND_BLUE : "#9ca3af",
+                        flexShrink: 0,
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: "13px", color: "#111827", margin: 0, fontWeight: 500 }}>
+                          {run.users?.name || "Unknown"}
+                        </p>
+                        <p style={{ fontSize: "12px", color: "#6b7280", margin: "2px 0 0 0" }}>
+                          {run.status === "completed" ? "Completed" : run.status === "in_progress" ? "In progress" : "Abandoned"}
+                          {" • "}
+                          {getTimeAgo(run.started_at)}
+                        </p>
+                      </div>
+                      <ChevronRight style={{ width: "16px", height: "16px", color: "#9ca3af", flexShrink: 0 }} />
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>
