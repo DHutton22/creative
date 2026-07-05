@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
@@ -173,50 +173,49 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     };
 
     try {
-      if (existingAnswer?.id) {
-        // Update existing answer
-        const { error: updateError } = await supabase
-          .from("checklist_answers")
-          .update(answerData)
-          .eq("id", existingAnswer.id);
+      // Save through the server endpoint. The browser Supabase client's writes
+      // are unreliable here (its auth lock can stall, so inserts/updates hang
+      // and answers/comments silently never persist). The server reads the
+      // session from cookies, so the write is authenticated and stable.
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-        if (updateError) {
-          console.error("Error updating answer:", updateError);
-          showToast({
-            type: "error",
-            title: "Couldn't save your change",
-            description: "The update was rejected by the database. Please try again or contact your administrator.",
-          });
-          setIsSaving(false);
-          return;
-        }
-        answerData.id = existingAnswer.id;
-      } else {
-        // Insert new answer
-        const { data, error: insertError } = await supabase
-          .from("checklist_answers")
-          .insert(answerData)
-          .select("id")
-          .single();
+      const res = await fetch("/api/checklist-answers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: controller.signal,
+        body: JSON.stringify({
+          runId: answerData.run_id,
+          sectionId: answerData.section_id,
+          itemId: answerData.item_id,
+          value: answerData.value,
+          comment: answerData.comment,
+          photoUrl: answerData.photo_url,
+        }),
+      });
 
-        if (insertError) {
-          console.error("Error inserting answer:", insertError);
-          showToast({
-            type: "error",
-            title: "Couldn't save your answer",
-            description: "The database rejected this answer. Please try again or contact your administrator.",
-          });
-          setIsSaving(false);
-          return;
-        }
+      clearTimeout(timeoutId);
 
-        if (data) {
-          answerData.id = data.id;
+      if (!res.ok) {
+        let description =
+          "The database rejected this answer. Please try again or contact your administrator.";
+        try {
+          const errJson = await res.json();
+          if (errJson?.error) description = errJson.error;
+        } catch {
+          // ignore parse failure, keep default message
         }
+        console.error("Error saving answer:", res.status, description);
+        showToast({ type: "error", title: "Couldn't save your answer", description });
+        setIsSaving(false);
+        return;
       }
 
-      // Update local state
-      setAnswers(new Map(answers.set(itemId, { ...answerData, id: answerData.id } as ChecklistAnswer)));
+      const { answer } = await res.json();
+
+      // Update local state with the row the server actually saved (includes id).
+      setAnswers(new Map(answers.set(itemId, (answer ?? answerData) as ChecklistAnswer)));
     } catch (err) {
       console.error("Error saving answer:", err);
       showToast({
@@ -242,13 +241,44 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     return answer?.value !== undefined && answer?.value !== null ? String(answer.value) : "";
   };
 
+  // Debounce timers per item so we can auto-save text/numeric answers a short
+  // moment after the user stops typing. Relying only on onBlur is fragile
+  // (especially on tablets, where blur can fail to fire when tapping between
+  // elements or dismissing the on-screen keyboard), which is why typed answers
+  // could appear not to save.
+  const autosaveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
   const handleInputChange = (itemId: string, value: string) => {
     setInputDrafts((prev) => new Map(prev).set(itemId, value));
   };
 
+  const handleInputChangeWithAutosave = (
+    sectionId: string,
+    itemId: string,
+    type: "text" | "numeric",
+    value: string
+  ) => {
+    setInputDrafts((prev) => new Map(prev).set(itemId, value));
+
+    const timers = autosaveTimers.current;
+    const existing = timers.get(itemId);
+    if (existing) clearTimeout(existing);
+    timers.set(
+      itemId,
+      setTimeout(() => {
+        timers.delete(itemId);
+        commitInputDraft(sectionId, itemId, type, value);
+      }, 900)
+    );
+  };
+
   // Persist a text/numeric draft to the database (called onBlur / Enter).
-  const commitInputDraft = (sectionId: string, itemId: string, type: "text" | "numeric") => {
-    const raw = inputDrafts.get(itemId);
+  // The raw value is read straight from the input element at commit time and
+  // passed in. Relying on the `inputDrafts` state here was unreliable: the
+  // blur handler could close over a stale copy of the map, so the value the
+  // user typed was silently dropped and never saved.
+  const commitInputDraft = (sectionId: string, itemId: string, type: "text" | "numeric", explicitValue?: string) => {
+    const raw = explicitValue !== undefined ? explicitValue : inputDrafts.get(itemId);
     if (raw === undefined) return; // nothing typed since last save
 
     const existingAnswer = answers.get(itemId);
@@ -329,39 +359,41 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     setIsSubmittingConcern(true);
 
     try {
-      // Insert concern into database
-      const { error } = await supabase.from("machine_concerns").insert({
-        machine_id: machine.id,
-        checklist_run_id: run.id,
-        checklist_item_id: concernItemId,
-        checklist_item_name: concernItemLabel,
-        raised_by: user?.id,
-        severity: concernSeverity,
-        description: concernDescription,
-        photo_url: concernPhotoUrl,
-        status: "open",
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch("/api/machine-concerns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        signal: controller.signal,
+        body: JSON.stringify({
+          machineId: machine.id,
+          checklistRunId: run.id,
+          checklistItemId: concernItemId,
+          checklistItemName: concernItemLabel,
+          severity: concernSeverity,
+          description: concernDescription,
+          photoUrl: concernPhotoUrl,
+        }),
       });
+      clearTimeout(timeoutId);
 
-      if (error) {
-        console.error("Error submitting concern:", error);
-        // Show error but don't block - table might not exist yet
-        if (error.code === "42P01") {
-          alert("Concern feature not yet enabled. Please run the command-center-tables.sql migration.");
-        }
-      } else {
-        // Log activity
+      if (!res.ok) {
+        let description = "Couldn't raise the concern. Please try again.";
         try {
-          await supabase.from("activity_log").insert({
-            user_id: user?.id,
-            action_type: "concern_raised",
-            entity_type: "machine_concern",
-            entity_id: machine.id,
-            machine_id: machine.id,
-            metadata: { severity: concernSeverity, item: concernItemLabel },
-          });
-        } catch (e) {
-          // Activity log might not exist
+          const errJson = await res.json();
+          if (errJson?.code === "42P01") {
+            description = "Concern feature not yet enabled (missing database table).";
+          } else if (errJson?.error) {
+            description = errJson.error;
+          }
+        } catch {
+          // keep default message
         }
+        console.error("Error submitting concern:", res.status, description);
+        showToast({ type: "error", title: "Couldn't raise concern", description });
+        setIsSubmittingConcern(false);
+        return;
       }
 
       // Close modal
@@ -371,6 +403,11 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
       setConcernPhotoUrl(null);
     } catch (err) {
       console.error("Error submitting concern:", err);
+      showToast({
+        type: "error",
+        title: "Couldn't raise concern",
+        description: "Something went wrong. Please try again.",
+      });
     }
 
     setIsSubmittingConcern(false);
@@ -381,22 +418,43 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     setShowConcernCamera(false);
   };
 
+  const updateRunStatus = async (status: "completed" | "aborted") => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
+    const res = await fetch("/api/checklist-runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      signal: controller.signal,
+      body: JSON.stringify({ runId: run!.id, status }),
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      let description = "Please try again or contact your administrator.";
+      try {
+        const errJson = await res.json();
+        if (errJson?.error) description = errJson.error;
+      } catch {
+        // keep default message
+      }
+      throw new Error(description);
+    }
+  };
+
   const handleComplete = async () => {
     if (!run) return;
     setIsCompleting(true);
 
     try {
-      await supabase
-        .from("checklist_runs")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", run.id);
-
+      await updateRunStatus("completed");
       router.push(`/checklists/${run.id}`);
     } catch (err) {
       console.error("Error completing checklist:", err);
+      showToast({
+        type: "error",
+        title: "Couldn't submit checklist",
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
       setIsCompleting(false);
     }
   };
@@ -405,17 +463,15 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
     if (!run || !confirm("Are you sure you want to abort this checklist? This cannot be undone.")) return;
 
     try {
-      await supabase
-        .from("checklist_runs")
-        .update({
-          status: "aborted",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", run.id);
-
+      await updateRunStatus("aborted");
       router.push(`/checklists/${run.id}`);
     } catch (err) {
       console.error("Error aborting checklist:", err);
+      showToast({
+        type: "error",
+        title: "Couldn't abort checklist",
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
     }
   };
 
@@ -796,10 +852,13 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                                 ? `${minVal} - ${maxVal}` 
                                 : "Enter value"}
                               value={getInputValue(item.id)}
-                              onChange={(e) => handleInputChange(item.id, e.target.value)}
-                              onBlur={() => commitInputDraft(currentSection.id, item.id, "numeric")}
+                              onChange={(e) => handleInputChangeWithAutosave(currentSection.id, item.id, "numeric", e.target.value)}
+                              onBlur={(e) => commitInputDraft(currentSection.id, item.id, "numeric", e.currentTarget.value)}
                               onKeyDown={(e) => {
-                                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                if (e.key === "Enter") {
+                                  commitInputDraft(currentSection.id, item.id, "numeric", e.currentTarget.value);
+                                  (e.target as HTMLInputElement).blur();
+                                }
                               }}
                               style={{
                                 flex: 1,
@@ -881,10 +940,13 @@ export default function ChecklistRunPage({ params }: { params: Promise<{ id: str
                             type="text"
                             placeholder="Enter response..."
                             value={getInputValue(item.id)}
-                            onChange={(e) => handleInputChange(item.id, e.target.value)}
-                            onBlur={() => commitInputDraft(currentSection.id, item.id, "text")}
+                              onChange={(e) => handleInputChangeWithAutosave(currentSection.id, item.id, "text", e.target.value)}
+                              onBlur={(e) => commitInputDraft(currentSection.id, item.id, "text", e.currentTarget.value)}
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                              if (e.key === "Enter") {
+                                commitInputDraft(currentSection.id, item.id, "text", e.currentTarget.value);
+                                (e.target as HTMLInputElement).blur();
+                              }
                             }}
                             style={{
                               flex: 1,

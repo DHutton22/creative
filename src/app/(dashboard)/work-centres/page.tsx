@@ -53,7 +53,15 @@ export default function WorkCentresPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedWorkCentre, setSelectedWorkCentre] = useState<string | null>(null);
+  // Only compute the time-based greeting after mount. Rendering it during SSR
+  // uses the server's clock (UTC) which can differ from the client's local time,
+  // causing a React hydration mismatch (#418).
+  const [mounted, setMounted] = useState(false);
   const { user, hasRole, isLoading: authLoading } = useAuth();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -147,7 +155,7 @@ export default function WorkCentresPage() {
           margin: '0 0 8px 0',
           fontFamily: 'var(--font-body, "Plus Jakarta Sans", sans-serif)',
         }}>
-          {getGreeting()}, {user?.name?.split(' ')[0] || 'Operator'}
+          {mounted ? `${getGreeting()}, ` : 'Hello, '}{user?.name?.split(' ')[0] || 'Operator'}
         </p>
         <h1 style={{ 
           fontFamily: 'var(--font-display, "DM Sans", sans-serif)',
